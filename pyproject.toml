@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "ibc_prometheus_exporter"
+version = "0.1.0"
+description = "IBC packet monitoring and Prometheus exporter"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+prometheus-client = "^0.16.0"
+toml = "^0.10.2"
+requests = "^2.28.0"
+fnmatch2 = "^0.7.3"
+unidiff = "^0.7.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.0"
+
+[tool.poetry.scripts]
+ibc-exporter = "ibc_monitor.main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

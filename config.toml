@@ -1,0 +1,72 @@
+[[chains]]
+name = "babylon"
+chain_id = "bbn-1"
+rpcs = ["https://rpc.babylon.network"]
+rests = ["https://lcd.babylon.network"]
+home_chain = true
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1800
+state_scan_timeout = 60
+
+[[chains]]
+name = "osmosis"
+chain_id = "osmosis-1"
+rpcs = ["https://rpc.osmosis.zone"]
+rests = ["https://lcd.osmosis.zone"]
+home_chain = false
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1800
+state_scan_timeout = 60
+
+[[chains]]
+name = "noble"
+chain_id = "noble-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1800
+state_scan_timeout = 60
+
+[[chains]]
+name = "cosmoshub"
+chain_id = "cosmoshub-4"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1800
+state_scan_timeout = 60
+
+# Excluded sequences per channel
+[excluded_sequences]
+channel-0 = [1, 2, "3-7", 9, 11]
+channel-1 = [4, 5, 6]
+
+# General exporter settings
+[exporter]
+address = "0.0.0.0"
+port = 8111
+update_interval_seconds = 30
+log_level = "INFO"
+
