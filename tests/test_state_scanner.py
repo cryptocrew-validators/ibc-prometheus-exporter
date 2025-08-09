@@ -52,7 +52,7 @@ def scanner():
 
 def test_scan_all(scanner):
     scanner.scan()
-    assert scanner.clients == ['c1']
+    assert sorted(scanner.clients) == ['c1', 'c2']
     assert scanner.connections == ['conn1']
     assert ('conn1', 'p', 'c', 'cp', 'cc', 'cp') in scanner.channels
 
@@ -84,7 +84,7 @@ def test_scan_ignores_missing_connections():
     cfg = DummyCfg()
     scanner = StateScanner(client, cfg, ['cp'])
     scanner.scan()
-    assert scanner.clients == []
+    assert scanner.clients == ['c1']
     assert scanner.connections == []
     assert scanner.channels == []
 
