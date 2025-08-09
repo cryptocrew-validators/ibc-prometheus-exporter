@@ -10,8 +10,8 @@ whitelist_connections = []
 blacklist_connections = []
 whitelist_channels = []
 blacklist_channels = []
-state_refresh_interval = 1800
-state_scan_timeout = 60
+state_refresh_interval = 1200
+state_scan_timeout = 600
 
 [[chains]]
 name = "osmosis"
@@ -25,8 +25,8 @@ whitelist_connections = []
 blacklist_connections = []
 whitelist_channels = []
 blacklist_channels = []
-state_refresh_interval = 1800
-state_scan_timeout = 60
+state_refresh_interval = 1200
+state_scan_timeout = 600
 
 [[chains]]
 name = "noble"
@@ -40,8 +40,8 @@ whitelist_connections = []
 blacklist_connections = []
 whitelist_channels = []
 blacklist_channels = []
-state_refresh_interval = 1800
-state_scan_timeout = 60
+state_refresh_interval = 1200
+state_scan_timeout = 600
 
 [[chains]]
 name = "cosmoshub"
@@ -55,8 +55,23 @@ whitelist_connections = []
 blacklist_connections = []
 whitelist_channels = []
 blacklist_channels = []
-state_refresh_interval = 1800
-state_scan_timeout = 60
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "axelar"
+chain_id = "axelar-dojo-1"
+rpcs = [""]
+rests = [""]
+home_chain = false
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
 
 # Excluded sequences per channel
 [excluded_sequences]
