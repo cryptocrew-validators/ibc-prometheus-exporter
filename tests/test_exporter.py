@@ -15,11 +15,14 @@ class FakeHomeClient:
 
     def query(self, path, params=None):
         # Local commitments: 1,2,3 (2 is excluded by config in the test)
-        if "packet_commitments" in path:
+        if "packet_commitments" in path and "unreceived_acks" not in path:
             return {"commitments": [{"sequence": "1"}, {"sequence": "2"}, {"sequence": "3"}]}
-        # Local unreceived_acks: if CP says it acked [2,3], pretend we still need to receive ack for 3
+
+        # Accept ANY form of unreceived_acks request and always pretend "3" is unreceived.
+        # This avoids coupling the test to the exact URL shape used by the exporter.
         if "unreceived_acks" in path:
             return {"sequences": ["3"]}
+
         # These are only hit if scanner.clients is non-empty; we keep it empty in the test
         if "/client/v1/client_states/" in path:
             return {"client_state": {"trusting_period": "1s", "chain_id": "chain-2"}}
@@ -36,11 +39,10 @@ class FakeCounterpartyClient:
         return True
 
     def query(self, path, params=None):
-        # Simulate filtered acks endpoint (the exporter calls with packet_commitment_sequences)
-        # Say CP has acks for sequences 2 and 3.
+        # Simulate filtered acks endpoint (exporter calls with sequences filter).
+        # Say CP has acks for sequences {2,3}. That's enough for the test logic.
         if "packet_acknowledgements" in path:
             return {"acknowledgements": [{"sequence": "2"}, {"sequence": "3"}]}
-        # Not used in this test otherwise
         return {}
 
 
@@ -48,7 +50,7 @@ class FakeScanner:
     def __init__(self):
         # No client metrics in this test (keep empty)
         self.clients = []
-        # One path: local (conn1, port1/ch1) <-> counterparty (port2/ch2) on chain-2
+        # One path: local (connection-1, port1/ch1) <-> counterparty (port2/ch2) on chain-2
         self.channels = [("connection-1", "port1", "ch1", "port2", "ch2", "chain-2")]
         self.client_counterparty_client_ids = {}
         # New exporter iterates this for CP-side metrics; keep empty for this test
@@ -120,7 +122,7 @@ def test_excluded_sequences_filtered():
     assert metrics.BACKLOG_SIZE.labels(**labels)._value.get() == 2
     assert metrics.BACKLOG_OLDEST_SEQ.labels(**labels)._value.get() == 1
 
-    # Fast-ack path: CP acks {2,3}; home unreceived_acks({2,3}) => {3}; oldest = 3
+    # Fast-ack path: CP acks {2,3}; home unreceived_acks(...) => {3}; oldest = 3
     assert metrics.ACK_OLDEST_SEQ.labels(**labels)._value.get() == 3
 
 

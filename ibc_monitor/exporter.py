@@ -123,7 +123,6 @@ class IBCExporter:
     # -------- helpers --------
 
     def _query_all_list(self, client: RESTClient, path: str, list_key: str):
-        """Follow pagination.next_key for list endpoints on the given client."""
         items = []
         next_key = None
         while True:
@@ -136,7 +135,6 @@ class IBCExporter:
         return items
 
     def _filtered_ack_sequences(self, client: RESTClient, port: str, channel: str, seqs):
-        """Ask only for acks that correspond to the provided commitment sequences."""
         acked = set()
         if not seqs:
             return acked
@@ -152,12 +150,6 @@ class IBCExporter:
         return acked
 
     def _unreceived_acks(self, client: RESTClient, port: str, channel: str, ack_seqs):
-        """
-        Return the subset of ack_seqs that the given chain has NOT received yet.
-
-        Correct SDK path (no query params):
-        /ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments/{seq1,seq2,...}/unreceived_acks
-        """
         unreceived = set()
         if not ack_seqs:
             return unreceived
@@ -176,14 +168,6 @@ class IBCExporter:
     # ---- consensus timestamp helpers ----
 
     def _latest_consensus_timestamp(self, rc: RESTClient, client_id: str, now: int) -> int:
-        """
-        Return the timestamp (seconds) of the latest consensus state for `client_id`.
-        Preference order:
-          1) client_state.latest_height -> fetch by height (single request)
-          2) list endpoint -> pick the highest height (fallback)
-          3) fallback to 0 (unknown)
-        NOTE: We DO NOT use consensus_state_heights since many LCDs return 501.
-        """
         # 1) via latest_height from client_state
         try:
             cs = rc.query(f"/ibc/core/client/v1/client_states/{client_id}")
