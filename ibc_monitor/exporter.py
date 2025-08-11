@@ -24,13 +24,55 @@ logger = logging.getLogger(__name__)
 DURATION_RE = re.compile(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?")
 
 def parse_duration(dur: str) -> int:
-    m = DURATION_RE.match(dur)
+    m = DURATION_RE.match(dur or "")
     if not m:
         return 0
     hours = int(m.group(1) or 0)
     minutes = int(m.group(2) or 0)
     seconds = int(m.group(3) or 0)
     return hours * 3600 + minutes * 60 + seconds
+
+# RFC3339 (with arbitrary fractional seconds) -> epoch seconds
+_TS_TZ_RE = re.compile(r"^(?P<prefix>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?P<frac>\.\d+)?(?P<tz>Z|[+\-]\d{2}:\d{2})$")
+
+def _parse_rfc3339_to_epoch(ts: str) -> int | None:
+    """
+    Parse timestamps like '2025-08-11T11:02:48.284737546+00:00' or with 'Z'.
+    We trim fractional seconds to microseconds since datetime.fromisoformat
+    only supports up to 6 digits.
+    """
+    if not ts:
+        return None
+    try:
+        m = _TS_TZ_RE.match(ts.replace("z", "Z"))
+        if not m:
+            # last resort: try replacing trailing 'Z' and drop fractional part entirely
+            t = ts.replace("Z", "+00:00")
+            if "." in t:
+                base, rest = t.split(".", 1)
+                if "+" in rest:
+                    _, tz = rest.split("+", 1)
+                    t = f"{base}+{tz}"
+                elif "-" in rest:
+                    _, tz = rest.split("-", 1)
+                    t = f"{base}-{tz}"
+            return int(datetime.datetime.fromisoformat(t).timestamp())
+        prefix = m.group("prefix")
+        frac = (m.group("frac") or "")
+        tz = m.group("tz")
+        if tz == "Z":
+            tz = "+00:00"
+        if frac:
+            # keep up to 6 digits (microseconds), right-pad if needed
+            digits = frac[1:]
+            digits = (digits[:6]).ljust(6, "0")
+            ts_norm = f"{prefix}.{digits}{tz}"
+        else:
+            ts_norm = f"{prefix}{tz}"
+        return int(datetime.datetime.fromisoformat(ts_norm).timestamp())
+    except Exception as e:
+        logger.debug("Failed to parse RFC3339 timestamp '%s': %s", ts, e)
+        return None
 
 BATCH = 100  # sequences per filtered-ack/unreceived_acks request
 
@@ -110,20 +152,79 @@ class IBCExporter:
         return acked
 
     def _unreceived_acks(self, client: RESTClient, port: str, channel: str, ack_seqs):
-        """Return the subset of ack_seqs that the given chain has NOT received yet."""
+        """
+        Return the subset of ack_seqs that the given chain has NOT received yet.
+
+        Correct SDK path (no query params):
+        /ibc/core/channel/v1/channels/{channel}/ports/{port}/packet_commitments/{seq1,seq2,...}/unreceived_acks
+        """
         unreceived = set()
         if not ack_seqs:
             return unreceived
-        base = f"/ibc/core/channel/v1/channels/{quote_plus(channel)}/ports/{quote_plus(port)}/unreceived_acks"
+
+        base = f"/ibc/core/channel/v1/channels/{quote_plus(channel)}/ports/{quote_plus(port)}/packet_commitments/{{seqs}}/unreceived_acks"
         for batch in _chunked(ack_seqs):
-            q = _params_repeat("packet_ack_sequences", batch)
-            res = client.query(f"{base}?{q}")
+            seqs_seg = ",".join(str(s) for s in batch)
+            res = client.query(base.format(seqs=quote_plus(seqs_seg)))
             for s in res.get("sequences", []) or []:
                 try:
                     unreceived.add(int(s))
                 except (TypeError, ValueError):
                     continue
         return unreceived
+
+    # ---- consensus timestamp helpers ----
+
+    def _latest_consensus_timestamp(self, rc: RESTClient, client_id: str, now: int) -> int:
+        """
+        Return the timestamp (seconds) of the latest consensus state for `client_id`.
+        Preference order:
+          1) client_state.latest_height -> fetch by height (single request)
+          2) list endpoint -> pick the highest height (fallback)
+          3) fallback to 0 (unknown)
+        NOTE: We DO NOT use consensus_state_heights since many LCDs return 501.
+        """
+        # 1) via latest_height from client_state
+        try:
+            cs = rc.query(f"/ibc/core/client/v1/client_states/{client_id}")
+            st = (cs.get("client_state") or {})
+            h = (st.get("latest_height") or {})
+            rev = h.get("revision_number")
+            hei = h.get("revision_height")
+            if rev is not None and hei is not None:
+                res = rc.query(
+                    f"/ibc/core/client/v1/consensus_states/{client_id}/revision/{rev}/height/{hei}"
+                )
+                ts = ((res.get("consensus_state") or {}).get("timestamp") or "")
+                epoch = _parse_rfc3339_to_epoch(ts)
+                if epoch is not None:
+                    return epoch
+        except Exception as e:
+            logger.debug("latest consensus by client_state.latest_height failed for %s: %s", client_id, e)
+
+        # 2) fallback: list endpoint -> pick the highest height
+        try:
+            res = rc.query(f"/ibc/core/client/v1/consensus_states/{client_id}")
+            lst = res.get("consensus_states")
+            if isinstance(lst, list) and lst:
+                def _hkey(el):
+                    hh = (el.get("height") or {})
+                    return (int(hh.get("revision_number") or 0), int(hh.get("revision_height") or 0))
+                last = max(lst, key=_hkey)
+                ts = ((last.get("consensus_state") or {}).get("timestamp") or "")
+                epoch = _parse_rfc3339_to_epoch(ts)
+                if epoch is not None:
+                    return epoch
+            # some LCDs/tests return a single object at top-level
+            ts = ((res.get("consensus_state") or {}).get("timestamp") or "")
+            epoch = _parse_rfc3339_to_epoch(ts)
+            if epoch is not None:
+                return epoch
+        except Exception as e:
+            logger.debug("fallback consensus states list fetch failed for %s: %s", client_id, e)
+
+        # 3) last resort -> unknown
+        return 0
 
     def run(self):
         # start prometheus server
@@ -161,11 +262,11 @@ class IBCExporter:
         for cid in self.scanner.clients:
             # trusting period
             cs = self.home_client.query(f"/ibc/core/client/v1/client_states/{cid}")
-            client_state = cs.get('client_state', {})
-            tp_str = client_state.get('trusting_period', '')
+            client_state = cs.get('client_state', {}) or {}
+            tp_str = client_state.get('trusting_period', '') or ''
             tp = parse_duration(tp_str)
-            cp_chain = client_state.get('chain_id', '')
-            cp_client = self.scanner.client_counterparty_client_ids.get(cid, '')
+            cp_chain = client_state.get('chain_id', '') or ''
+            cp_client = self.scanner.client_counterparty_client_ids.get(cid, '') or ''
             CLIENT_TRUSTING_PERIOD.labels(
                 client_id=cid,
                 chain_id=self.home_chain_cfg.chain_id,
@@ -174,19 +275,56 @@ class IBCExporter:
             ).set(tp)
 
             # last update
-            cons = self.home_client.query(f"/ibc/core/client/v1/consensus_states/{cid}")
-            ts_str = cons.get('consensus_state', {}).get('timestamp', '')
-            if ts_str:
-                dt = datetime.datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-                last_ts = int(dt.timestamp())
-            else:
-                last_ts = now
+            last_ts = self._latest_consensus_timestamp(self.home_client, cid, now)
             CLIENT_LAST_UPDATE.labels(
                 client_id=cid,
                 chain_id=self.home_chain_cfg.chain_id,
                 counterparty_chain_id=cp_chain,
                 counterparty_client_id=cp_client,
             ).set(last_ts)
+
+        # -------- client state metrics (counterparties) --------
+        # Build a set of cp-clients per cp-chain from what we learned on the home chain
+        cp_clients_by_chain = {}
+        for local_cid in self.scanner.clients:
+            cp_chain = self.scanner.client_chain_map.get(local_cid, "")
+            cp_client = self.scanner.client_counterparty_client_ids.get(local_cid, "")
+            if cp_chain and cp_client:
+                cp_clients_by_chain.setdefault(cp_chain, set()).add((cp_client, local_cid))  # (cp_client, home_client)
+
+        for cp_chain, pairs in cp_clients_by_chain.items():
+            rc = self.rest_by_chain.get(cp_chain)
+            if not rc or not rc.health():
+                continue
+
+            for cp_client, home_client in pairs:
+                # trusting period on the counterparty
+                try:
+                    cs_cp = rc.query(f"/ibc/core/client/v1/client_states/{cp_client}")
+                    cp_state = cs_cp.get("client_state", {}) or {}
+                    tp_str_cp = cp_state.get("trusting_period", "") or ""
+                    tp_cp = parse_duration(tp_str_cp)
+                    CLIENT_TRUSTING_PERIOD.labels(
+                        client_id=cp_client,
+                        chain_id=cp_chain,
+                        counterparty_chain_id=self.home_chain_cfg.chain_id,
+                        counterparty_client_id=home_client,
+                    ).set(tp_cp)
+                except Exception as e:
+                    logger.debug("cp client_states failed for %s on %s: %s", cp_client, cp_chain, e)
+                    continue
+
+                # last update on the counterparty
+                try:
+                    last_ts_cp = self._latest_consensus_timestamp(rc, cp_client, now)
+                    CLIENT_LAST_UPDATE.labels(
+                        client_id=cp_client,
+                        chain_id=cp_chain,
+                        counterparty_chain_id=self.home_chain_cfg.chain_id,
+                        counterparty_client_id=home_client,
+                    ).set(last_ts_cp)
+                except Exception as e:
+                    logger.debug("cp consensus_states failed for %s on %s: %s", cp_client, cp_chain, e)
 
         # -------- backlog metrics per channel (home) --------
         for conn, port, channel, cp_port, cp_channel, cp_chain in self.scanner.channels:
