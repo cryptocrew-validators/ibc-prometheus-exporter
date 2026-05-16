@@ -3,6 +3,9 @@ name: Integration Tests
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   integration:
     runs-on: ubuntu-latest
