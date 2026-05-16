@@ -35,6 +35,18 @@ Configured REST endpoints are used in order. Chain-registry fallback discovery
 is disabled by default for predictable production behavior; enable it explicitly
 with `enable_chain_registry_fallbacks = true` under `[exporter]` if desired.
 
+By default the exporter reports all discovered clients and channels. Set
+`omit_inactive_clients = true` to keep only active clients, and
+`omit_closed_channels = true` under `[exporter]` to skip closed channels and
+their backlog metrics.
+
+Excluded packet sequences are scoped by chain and channel:
+
+```toml
+[chains.excluded_sequences]
+channel-7 = ["2-6"]
+```
+
 ## Metrics
 
 The following metrics are exported:
@@ -45,7 +57,9 @@ The following metrics are exported:
 | `ibc_ack_packet_backlog_oldest_sequence` | Oldest AcknowledgementPacket sequence | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id |
 | `ibc_ack_packet_backlog_oldest_timestamp_seconds` | Timestamp of oldest AcknowledgementPacket in backlog | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id |
 | `ibc_backlog_last_update_time_seconds` | Last successful update time for backlog metrics | chain_id |
+| `ibc_channel_state` | IBC channel state as a labeled gauge with value 1 for the current state | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id, state |
 | `ibc_client_last_update_timestamp_seconds` | Last consensus state update time | client_id, chain_id, counterparty_chain_id, counterparty_client_id |
+| `ibc_client_status` | IBC client status as a labeled gauge with value 1 for the current status | client_id, chain_id, counterparty_chain_id, counterparty_client_id, status |
 | `ibc_client_trusting_period_seconds` | Trusting period for IBC client | client_id, chain_id, counterparty_chain_id, counterparty_client_id |
 | `ibc_exporter_update_duration_seconds` | Duration of the most recent exporter update cycle | chain_id |
 | `ibc_exporter_update_errors_total` | Total exporter update errors | chain_id, stage |

@@ -18,6 +18,16 @@ CLIENT_LAST_UPDATE = Gauge(
     'Last consensus state update time',
     ['client_id', 'chain_id', 'counterparty_chain_id', 'counterparty_client_id'],
 )
+CLIENT_STATUS = Gauge(
+    'ibc_client_status',
+    'IBC client status as a labeled gauge with value 1 for the current status',
+    ['client_id', 'chain_id', 'counterparty_chain_id', 'counterparty_client_id', 'status'],
+)
+CHANNEL_STATE = Gauge(
+    'ibc_channel_state',
+    'IBC channel state as a labeled gauge with value 1 for the current state',
+    ['chain_id', 'connection_id', 'port_id', 'channel_id', 'counterparty_chain_id', 'counterparty_port_id', 'counterparty_channel_id', 'state'],
+)
 
 # Packet backlog metrics
 BACKLOG_SIZE = Gauge(

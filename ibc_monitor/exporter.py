@@ -7,11 +7,17 @@ from decimal import Decimal, InvalidOperation
 from prometheus_client import start_http_server
 from ibc_monitor.rest_client import RESTClient
 from ibc_monitor.config import Config, ChainConfig
-from ibc_monitor.state_scanner import StateScanner
+from ibc_monitor.state_scanner import (
+    ACTIVE_CLIENT_STATUSES,
+    StateScanner,
+    normalize_ibc_enum,
+)
 from ibc_monitor.metrics import (
     REST_HEALTH,
     CLIENT_TRUSTING_PERIOD,
     CLIENT_LAST_UPDATE,
+    CLIENT_STATUS,
+    CHANNEL_STATE,
     BACKLOG_SIZE,
     BACKLOG_OLDEST_SEQ,
     BACKLOG_OLDEST_TIMESTAMP,
@@ -152,6 +158,8 @@ class IBCExporter:
         self.pending_acks = {}
         self._rest_health_labelsets = set()
         self._backlog_labelsets = set()
+        self._client_status_labelsets = set()
+        self._channel_state_labelsets = set()
 
     # -------- helpers --------
 
@@ -279,6 +287,49 @@ class IBCExporter:
         ACK_OLDEST_SEQ.labels(**labels).set(aoldest_seq)
         ACK_OLDEST_TIMESTAMP.labels(**labels).set(aoldest_ts)
 
+    def _remove_stale_labelsets(self, metric, attr_name: str, active_labelsets) -> None:
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, set())
+        previous = getattr(self, attr_name)
+        for label_values in previous - active_labelsets:
+            try:
+                metric.remove(*label_values)
+            except KeyError:
+                pass
+        setattr(self, attr_name, active_labelsets)
+
+    def _record_client_status(
+        self,
+        active_labelsets,
+        chain_id: str,
+        client_id: str,
+        counterparty_chain_id: str,
+        counterparty_client_id: str,
+        status: str,
+    ) -> None:
+        label_values = (
+            client_id,
+            chain_id,
+            counterparty_chain_id,
+            counterparty_client_id,
+            status or "unknown",
+        )
+        CLIENT_STATUS.labels(
+            client_id=client_id,
+            chain_id=chain_id,
+            counterparty_chain_id=counterparty_chain_id,
+            counterparty_client_id=counterparty_client_id,
+            status=status or "unknown",
+        ).set(1)
+        active_labelsets.add(label_values)
+
+    def _record_channel_state(self, active_labelsets, label_values, state: str) -> None:
+        state = state or "unknown"
+        labels = self._metric_labels_dict(label_values)
+        labels["state"] = state
+        CHANNEL_STATE.labels(**labels).set(1)
+        active_labelsets.add(tuple(label_values) + (state,))
+
     def _remove_stale_backlog_metrics(self, active_labelsets) -> None:
         if not hasattr(self, "_backlog_labelsets"):
             self._backlog_labelsets = set()
@@ -302,6 +353,14 @@ class IBCExporter:
         oldest_seq = min(pending) if pending else 0
         oldest_ts = pending.get(oldest_seq, 0)
         return oldest_seq, oldest_ts, now - oldest_ts if oldest_ts else 0
+
+    @staticmethod
+    def _query_client_status(rc: RESTClient, client_id: str, timeout: int) -> str:
+        res = rc.query(
+            f"/ibc/core/client/v1/client_status/{quote_plus(client_id)}",
+            timeout=timeout,
+        )
+        return normalize_ibc_enum(res.get("status"), "STATUS_")
 
     def _filtered_ack_sequences(self, client: RESTClient, port: str, channel: str, seqs):
         acked = set()
@@ -396,6 +455,8 @@ class IBCExporter:
         now = int(time.time())
         home_chain_id = self.home_chain_cfg.chain_id
         active_labelsets = set()
+        active_client_status_labelsets = set()
+        active_channel_state_labelsets = set()
         failed_backlog_chains = set()
         health_by_chain = {}
 
@@ -432,13 +493,23 @@ class IBCExporter:
 
         # -------- client state metrics (home) --------
         for cid in self.scanner.clients:
+            cp_chain = self.scanner.client_chain_map.get(cid, "")
+            cp_client = self.scanner.client_counterparty_client_ids.get(cid, "")
+            status = getattr(self.scanner, "client_status_map", {}).get(cid, "unknown")
+            self._record_client_status(
+                active_client_status_labelsets,
+                home_chain_id,
+                cid,
+                cp_chain,
+                cp_client,
+                status,
+            )
             try:
                 cs = self.home_client.query(f"/ibc/core/client/v1/client_states/{cid}")
                 client_state = cs.get('client_state', {}) or {}
                 tp_str = client_state.get('trusting_period', '') or ''
                 tp = parse_duration(tp_str)
-                cp_chain = client_state.get('chain_id', '') or ''
-                cp_client = self.scanner.client_counterparty_client_ids.get(cid, '') or ''
+                cp_chain = client_state.get('chain_id', '') or cp_chain
                 CLIENT_TRUSTING_PERIOD.labels(
                     client_id=cid,
                     chain_id=home_chain_id,
@@ -473,6 +544,36 @@ class IBCExporter:
                 continue
 
             for cp_client, home_client in pairs:
+                status = getattr(self.scanner, "cp_client_status_map", {}).get((cp_chain, cp_client))
+                if not status:
+                    try:
+                        status = self._query_client_status(
+                            rc,
+                            cp_client,
+                            self.home_chain_cfg.state_scan_timeout,
+                        )
+                    except Exception as e:
+                        self._inc_error(cp_chain, "client_status")
+                        if getattr(self.cfg, "omit_inactive_clients", False):
+                            logger.warning(
+                                "Counterparty client status failed for %s on %s: %s",
+                                cp_client,
+                                cp_chain,
+                                e,
+                            )
+                            continue
+                        status = "unknown"
+                if getattr(self.cfg, "omit_inactive_clients", False) and status not in ACTIVE_CLIENT_STATUSES:
+                    continue
+                self._record_client_status(
+                    active_client_status_labelsets,
+                    cp_chain,
+                    cp_client,
+                    home_chain_id,
+                    home_client,
+                    status,
+                )
+
                 # trusting period on the counterparty
                 try:
                     cs_cp = rc.query(f"/ibc/core/client/v1/client_states/{cp_client}")
@@ -516,6 +617,11 @@ class IBCExporter:
                 cp_port,
                 cp_channel,
             )
+            self._record_channel_state(
+                active_channel_state_labelsets,
+                label_values,
+                getattr(self.scanner, "channel_state_map", {}).get(key_home, "unknown"),
+            )
 
             try:
                 sp_items = self._query_all_list(
@@ -527,7 +633,7 @@ class IBCExporter:
                 seqs = self._parse_sequences(sp_items, channel)
                 valid_seqs = [
                     s for s in seqs
-                    if not self.cfg.excluded_sequences.is_excluded(channel, s)
+                    if not self.cfg.excluded_sequences.is_excluded(channel, s, home_chain_id)
                 ]
                 self._record_send_backlog(label_values, key_home, valid_seqs, now)
                 active_labelsets.add(label_values)
@@ -582,11 +688,6 @@ class IBCExporter:
         # tuples: (cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id)
         for (cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id) in self.scanner.cp_channels:
             rc = self.rest_by_chain.get(cp_chain)
-            if not rc or not health_by_chain.get(cp_chain, False):
-                failed_backlog_chains.add(cp_chain)
-                continue
-
-            key_cp = (cp_chain, cp_conn, port, channel)
             label_values = self._metric_labels_tuple(
                 cp_chain,
                 cp_conn,
@@ -596,6 +697,16 @@ class IBCExporter:
                 cp_port,
                 cp_channel,
             )
+            self._record_channel_state(
+                active_channel_state_labelsets,
+                label_values,
+                getattr(self.scanner, "cp_channel_state_map", {}).get((cp_chain, cp_conn, port, channel), "unknown"),
+            )
+            if not rc or not health_by_chain.get(cp_chain, False):
+                failed_backlog_chains.add(cp_chain)
+                continue
+
+            key_cp = (cp_chain, cp_conn, port, channel)
 
             try:
                 sp_items = self._query_all_list(
@@ -607,7 +718,7 @@ class IBCExporter:
                 seqs = self._parse_sequences(sp_items, channel)
                 valid_seqs = [
                     s for s in seqs
-                    if not self.cfg.excluded_sequences.is_excluded(channel, s)
+                    if not self.cfg.excluded_sequences.is_excluded(channel, s, cp_chain)
                 ]
                 self._record_send_backlog(label_values, key_cp, valid_seqs, now)
                 active_labelsets.add(label_values)
@@ -657,6 +768,16 @@ class IBCExporter:
             if not hasattr(self, "_backlog_labelsets"):
                 self._backlog_labelsets = set()
             self._backlog_labelsets |= active_labelsets
+        self._remove_stale_labelsets(
+            CLIENT_STATUS,
+            "_client_status_labelsets",
+            active_client_status_labelsets,
+        )
+        self._remove_stale_labelsets(
+            CHANNEL_STATE,
+            "_channel_state_labelsets",
+            active_channel_state_labelsets,
+        )
 
         for cid, healthy in health_by_chain.items():
             if healthy and cid not in failed_backlog_chains:

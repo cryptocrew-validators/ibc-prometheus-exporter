@@ -51,13 +51,17 @@ class FakeCounterpartyClient:
 
 class FakeScanner:
     def __init__(self):
-        # No client metrics in this test (keep empty)
-        self.clients = []
+        self.clients = ["client-1"]
+        self.client_chain_map = {"client-1": "chain-2"}
+        self.client_status_map = {"client-1": "active"}
         # One path: local (connection-1, port1/ch1) <-> counterparty (port2/ch2) on chain-2
         self.channels = [("connection-1", "port1", "ch1", "port2", "ch2", "chain-2")]
+        self.channel_state_map = {("chain-1", "connection-1", "port1", "ch1"): "open"}
         self.client_counterparty_client_ids = {}
         # New exporter iterates this for CP-side metrics; keep empty for this test
         self.cp_channels = []
+        self.cp_client_status_map = {}
+        self.cp_channel_state_map = {}
 
     def scan(self):
         return True
@@ -82,10 +86,11 @@ def build_home_anchored_exporter():
 
     exporter = IBCExporter.__new__(IBCExporter)
     exporter.cfg = type("Cfg", (), {})()
-    exporter.cfg.excluded_sequences = ExcludedSequences({"ch1": [2]})
+    exporter.cfg.excluded_sequences = ExcludedSequences({"chain-1": {"ch1": [2]}})
     exporter.cfg.address = "127.0.0.1"
     exporter.cfg.port = 0
     exporter.cfg.update_interval = 1
+    exporter.cfg.omit_inactive_clients = False
 
     # Home-anchored attributes expected by the new exporter
     exporter.home_chain_cfg = chain_cfg
@@ -107,6 +112,8 @@ def test_excluded_sequences_filtered():
     metrics.BACKLOG_OLDEST_SEQ.clear()
     metrics.ACK_OLDEST_SEQ.clear()
     metrics.BACKLOG_UPDATED.clear()
+    metrics.CLIENT_STATUS.clear()
+    metrics.CHANNEL_STATE.clear()
 
     exporter = build_home_anchored_exporter()
     exporter.update_metrics()
@@ -127,6 +134,14 @@ def test_excluded_sequences_filtered():
 
     # Fast-ack path: CP acks {2,3}; home unreceived_acks(...) => {3}; oldest = 3
     assert metrics.ACK_OLDEST_SEQ.labels(**labels)._value.get() == 3
+    assert metrics.CHANNEL_STATE.labels(**labels, state="open")._value.get() == 1
+    assert metrics.CLIENT_STATUS.labels(
+        chain_id="chain-1",
+        client_id="client-1",
+        counterparty_chain_id="chain-2",
+        counterparty_client_id="",
+        status="active",
+    )._value.get() == 1
 
 
 def test_failed_commitment_query_does_not_clear_existing_backlog():

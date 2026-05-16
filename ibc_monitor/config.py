@@ -1,7 +1,8 @@
-import toml
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+
+import toml
 
 ListStr = List[str]
 DEFAULT_MAX_PAGINATION_PAGES = 1000
@@ -26,6 +27,9 @@ class ChainConfig:
         home_chain: bool = False,
         max_pagination_pages: int = DEFAULT_MAX_PAGINATION_PAGES,
         pagination_limit: int = DEFAULT_PAGINATION_LIMIT,
+        omit_closed_channels: bool = False,
+        omit_inactive_clients: bool = False,
+        excluded_sequences: Optional[Dict[str, List[Any]]] = None,
     ):
         self.name = name
         self.chain_id = chain_id
@@ -42,32 +46,51 @@ class ChainConfig:
         self.home_chain = home_chain
         self.max_pagination_pages = max_pagination_pages
         self.pagination_limit = pagination_limit
+        self.omit_closed_channels = omit_closed_channels
+        self.omit_inactive_clients = omit_inactive_clients
+        self.excluded_sequences = excluded_sequences or {}
 
 
 class ExcludedSequences:
-    def __init__(self, raw: Dict[str, List[Any]]):
-        self.map: Dict[str, set[int]] = {}
-        for channel, seqs in raw.items():
-            if not isinstance(channel, str) or not channel:
-                raise ValueError("excluded_sequences keys must be non-empty channel IDs")
-            if not isinstance(seqs, list):
-                raise ValueError(f"excluded_sequences.{channel} must be a list")
-            parsed: List[int] = []
-            for s in seqs:
-                if isinstance(s, str) and '-' in s:
-                    start, end = map(int, s.split('-', 1))
-                    if start <= 0 or end <= 0 or start > end:
-                        raise ValueError(f"Invalid excluded sequence range {s!r} for {channel}")
-                    parsed.extend(range(start, end + 1))
-                else:
-                    seq = int(s)
-                    if seq <= 0:
-                        raise ValueError(f"Invalid excluded sequence {s!r} for {channel}")
-                    parsed.append(seq)
-            self.map[channel] = set(parsed)
+    def __init__(self, raw: Dict[str, Any]):
+        self.map: Dict[str, Dict[str, set[int]]] = {}
+        for key, value in raw.items():
+            if not isinstance(key, str) or not key:
+                raise ValueError("excluded_sequences keys must be non-empty strings")
+            if isinstance(value, dict):
+                for channel, seqs in value.items():
+                    self._add_channel(key, channel, seqs)
+            elif isinstance(value, list):
+                # Backward-compatible flat form: [excluded_sequences] channel-0 = [...]
+                self._add_channel("*", key, value)
+            else:
+                raise ValueError(
+                    f"excluded_sequences.{key} must be a chain table or a legacy sequence list"
+                )
 
-    def is_excluded(self, channel: str, seq: int) -> bool:
-        return seq in self.map.get(channel, set())
+    def _add_channel(self, chain_id: str, channel: str, seqs: Any) -> None:
+        if not isinstance(channel, str) or not channel:
+            raise ValueError(f"excluded_sequences.{chain_id} keys must be non-empty channel IDs")
+        if not isinstance(seqs, list):
+            raise ValueError(f"excluded_sequences.{chain_id}.{channel} must be a list")
+        parsed: List[int] = []
+        for s in seqs:
+            if isinstance(s, str) and '-' in s:
+                start, end = map(int, s.split('-', 1))
+                if start <= 0 or end <= 0 or start > end:
+                    raise ValueError(f"Invalid excluded sequence range {s!r} for {chain_id}/{channel}")
+                parsed.extend(range(start, end + 1))
+            else:
+                seq = int(s)
+                if seq <= 0:
+                    raise ValueError(f"Invalid excluded sequence {s!r} for {chain_id}/{channel}")
+                parsed.append(seq)
+        self.map.setdefault(chain_id, {})[channel] = set(parsed)
+
+    def is_excluded(self, channel: str, seq: int, chain_id: str | None = None) -> bool:
+        if chain_id and seq in self.map.get(chain_id, {}).get(channel, set()):
+            return True
+        return seq in self.map.get("*", {}).get(channel, set())
 
 
 class Config:
@@ -81,8 +104,24 @@ class Config:
         raw_chains = data.get('chains', [])
         if not isinstance(raw_chains, list):
             raise ValueError('chains must be a list of chain tables')
+        if 'excluded_sequences' in data:
+            raise ValueError(
+                'excluded_sequences must be configured inside each [[chains]] table'
+            )
+        exporter = data.get('exporter', {})
+        if not isinstance(exporter, dict):
+            raise ValueError('exporter must be a table')
+        omit_closed_channels = self._bool(
+            exporter.get('omit_closed_channels', False),
+            'exporter.omit_closed_channels',
+        )
+        omit_inactive_clients = self._bool(
+            exporter.get('omit_inactive_clients', False),
+            'exporter.omit_inactive_clients',
+        )
 
         self.chains: List[ChainConfig] = []
+        excluded_sequences_by_chain: Dict[str, Dict[str, List[Any]]] = {}
         seen_chain_ids: set[str] = set()
         for c in raw_chains:
             if not isinstance(c, dict):
@@ -101,6 +140,11 @@ class Config:
                 c.get('state_scan_timeout', 60),
                 f"{chain_id}.state_scan_timeout",
             )
+            chain_excluded_sequences = c.get('excluded_sequences', {})
+            if not isinstance(chain_excluded_sequences, dict):
+                raise ValueError(f"{chain_id}.excluded_sequences must be a table")
+            if chain_excluded_sequences:
+                excluded_sequences_by_chain[chain_id] = chain_excluded_sequences
             self.chains.append(
                 ChainConfig(
                     name=name,
@@ -124,6 +168,15 @@ class Config:
                         c.get('pagination_limit', DEFAULT_PAGINATION_LIMIT),
                         f"{chain_id}.pagination_limit",
                     ),
+                    omit_closed_channels=self._bool(
+                        c.get('omit_closed_channels', omit_closed_channels),
+                        f"{chain_id}.omit_closed_channels",
+                    ),
+                    omit_inactive_clients=self._bool(
+                        c.get('omit_inactive_clients', omit_inactive_clients),
+                        f"{chain_id}.omit_inactive_clients",
+                    ),
+                    excluded_sequences=chain_excluded_sequences,
                 )
             )
         home = [c for c in self.chains if c.home_chain]
@@ -132,13 +185,7 @@ class Config:
         self.home_chain = home[0]
         if not self.home_chain.rests:
             raise ValueError(f"Home chain {self.home_chain.chain_id} must define at least one valid REST endpoint")
-        excluded_sequences = data.get('excluded_sequences', {})
-        if not isinstance(excluded_sequences, dict):
-            raise ValueError('excluded_sequences must be a table')
-        self.excluded_sequences = ExcludedSequences(excluded_sequences)
-        exporter = data.get('exporter', {})
-        if not isinstance(exporter, dict):
-            raise ValueError('exporter must be a table')
+        self.excluded_sequences = ExcludedSequences(excluded_sequences_by_chain)
         self.address = self._optional_str(exporter.get('address', '0.0.0.0'), 'exporter.address')
         self.port = self._port(exporter.get('port', 8000))
         self.update_interval = self._positive_int(
@@ -158,6 +205,8 @@ class Config:
             exporter.get('pagination_limit', DEFAULT_PAGINATION_LIMIT),
             'exporter.pagination_limit',
         )
+        self.omit_closed_channels = omit_closed_channels
+        self.omit_inactive_clients = omit_inactive_clients
 
     @staticmethod
     def _required_str(data: Dict[str, Any], key: str) -> str:
