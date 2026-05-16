@@ -1,4 +1,4 @@
-from prometheus_client import Gauge
+from prometheus_client import Counter, Gauge
 
 # REST endpoint health metric
 REST_HEALTH = Gauge(
@@ -17,6 +17,16 @@ CLIENT_LAST_UPDATE = Gauge(
     'ibc_client_last_update_timestamp_seconds',
     'Last consensus state update time',
     ['client_id', 'chain_id', 'counterparty_chain_id', 'counterparty_client_id'],
+)
+CLIENT_STATUS = Gauge(
+    'ibc_client_status',
+    'IBC client status as a labeled gauge with value 1 for the current status',
+    ['client_id', 'chain_id', 'counterparty_chain_id', 'counterparty_client_id', 'status'],
+)
+CHANNEL_STATE = Gauge(
+    'ibc_channel_state',
+    'IBC channel state as a labeled gauge with value 1 for the current state',
+    ['chain_id', 'connection_id', 'port_id', 'channel_id', 'counterparty_chain_id', 'counterparty_port_id', 'counterparty_channel_id', 'state'],
 )
 
 # Packet backlog metrics
@@ -47,6 +57,16 @@ ACK_OLDEST_TIMESTAMP = Gauge(
 )
 BACKLOG_UPDATED = Gauge(
     'ibc_backlog_last_update_time_seconds',
-    'Last update time for backlog metrics',
+    'Last successful update time for backlog metrics',
     ['chain_id'],
+)
+UPDATE_DURATION = Gauge(
+    'ibc_exporter_update_duration_seconds',
+    'Duration of the most recent exporter update cycle',
+    ['chain_id'],
+)
+UPDATE_ERRORS = Counter(
+    'ibc_exporter_update_errors_total',
+    'Total exporter update errors',
+    ['chain_id', 'stage'],
 )

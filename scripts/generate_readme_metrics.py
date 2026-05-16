@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
-from prometheus_client import Gauge
+from prometheus_client import Counter, Gauge
 
 # Ensure project root is on the Python path
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +18,10 @@ def collect_metrics() -> List[Tuple[str, str, Tuple[str, ...]]]:
     module = importlib.import_module("ibc_monitor.metrics")
     metrics: List[Tuple[str, str, Tuple[str, ...]]] = []
     for obj in vars(module).values():
-        if isinstance(obj, Gauge):
+        if isinstance(obj, Counter):
+            name = obj._name if obj._name.endswith("_total") else f"{obj._name}_total"
+            metrics.append((name, obj._documentation, obj._labelnames))
+        elif isinstance(obj, Gauge):
             metrics.append((obj._name, obj._documentation, obj._labelnames))
     return sorted(metrics, key=lambda m: m[0])
 

@@ -1,6 +1,6 @@
 import pytest
 import requests
-from ibc_monitor.rest_client import RESTClient
+from ibc_monitor.rest_client import RESTClient, RESTQueryError
 
 
 class DummyResponse:
@@ -36,7 +36,12 @@ def patch_health(monkeypatch):
 
 def test_health_primary_and_fallback(patch_health):
     calls = patch_health
-    client = RESTClient('http://primary', 'test-1', 'testchain')
+    client = RESTClient(
+        'http://primary',
+        'test-1',
+        'testchain',
+        enable_chain_registry_fallbacks=True,
+    )
     # first health loads fallbacks and checks primary + fallbacks
     ok = client.health()
     assert ok
@@ -59,7 +64,12 @@ def test_query_switches_to_healthy_fallback(monkeypatch):
         pytest.fail(f'Unexpected URL {url}')
 
     monkeypatch.setattr(requests, 'get', fake_get)
-    client = RESTClient('http://primary', 'test-1', 'testchain')
+    client = RESTClient(
+        'http://primary',
+        'test-1',
+        'testchain',
+        fallback_endpoints=['http://fb1'],
+    )
     data = client.query('/foo')
     assert data == {'ok': 1}
     assert client.endpoint == 'http://fb1'
@@ -75,6 +85,33 @@ def test_query_returns_empty_when_all_fail(monkeypatch):
         raise requests.RequestException('boom')
 
     monkeypatch.setattr(requests, 'get', fake_get)
-    client = RESTClient('http://primary', 'test-1', 'testchain')
-    data = client.query('/foo')
-    assert data == {}
+    client = RESTClient(
+        'http://primary',
+        'test-1',
+        'testchain',
+        fallback_endpoints=['http://fb1'],
+    )
+    with pytest.raises(RESTQueryError):
+        client.query('/foo')
+
+
+def test_chain_registry_can_supply_first_endpoint(monkeypatch):
+    def fake_get(url, params=None, timeout=3):
+        if 'chain-registry' in url:
+            return DummyResponse({'apis': {'rest': [{'address': 'http://fb1'}]}})
+        if url == 'http://fb1/cosmos/base/tendermint/v1beta1/node_info':
+            return DummyResponse({'default_node_info': {'network': 'test-1'}})
+        if url == 'http://fb1/foo':
+            return DummyResponse({'ok': 1})
+        pytest.fail(f'Unexpected URL {url}')
+
+    monkeypatch.setattr(requests, 'get', fake_get)
+    client = RESTClient(
+        '',
+        'test-1',
+        'testchain',
+        enable_chain_registry_fallbacks=True,
+    )
+    assert client.health() is True
+    assert client.endpoint == 'http://fb1'
+    assert client.query('/foo') == {'ok': 1}

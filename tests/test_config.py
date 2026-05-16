@@ -21,14 +21,16 @@ def build_config(tmp_path):
                 'blacklist_channels': [],
                 'state_refresh_interval': 123,
                 'state_scan_timeout': 45,
+                'excluded_sequences': {'ch1': ['1', '2-3']},
             }
         ],
-        'excluded_sequences': {'ch1': ['1', '2-3']},
         'exporter': {
             'address': '127.0.0.1',
             'port': 9000,
             'update_interval_seconds': 45,
             'log_level': 'DEBUG',
+            'omit_closed_channels': True,
+            'omit_inactive_clients': True,
         },
     }
     p = tmp_path / 'config.toml'
@@ -54,13 +56,32 @@ def test_config_parsing(tmp_path):
     assert cfg.port == 9000
     assert cfg.update_interval == 45
     assert cfg.log_level == 'DEBUG'
+    assert cfg.omit_closed_channels is True
+    assert cfg.omit_inactive_clients is True
+    assert chain.omit_closed_channels is True
+    assert chain.omit_inactive_clients is True
+    assert chain.excluded_sequences == {'ch1': ['1', '2-3']}
     assert cfg.home_chain is chain
     # excluded sequences
     ex = cfg.excluded_sequences
-    assert ex.is_excluded('ch1', 1)
-    assert ex.is_excluded('ch1', 2)
-    assert ex.is_excluded('ch1', 3)
-    assert not ex.is_excluded('ch1', 4)
+    assert ex.is_excluded('ch1', 1, 'test-1')
+    assert ex.is_excluded('ch1', 2, 'test-1')
+    assert ex.is_excluded('ch1', 3, 'test-1')
+    assert not ex.is_excluded('ch1', 4, 'test-1')
+    assert not ex.is_excluded('ch1', 1, 'other-1')
+
+
+def test_rejects_top_level_excluded_sequences(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': ['http://home'], 'home_chain': True},
+        ],
+        'excluded_sequences': {'home-1': {'channel-0': [1]}},
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    with pytest.raises(ValueError, match='inside each'):
+        Config(p)
 
 
 def test_requires_single_home_chain(tmp_path):
@@ -73,6 +94,45 @@ def test_requires_single_home_chain(tmp_path):
     p = tmp_path / 'c.toml'
     p.write_text(toml.dumps(data))
     with pytest.raises(ValueError):
+        Config(p)
+
+
+def test_empty_counterparty_endpoints_are_ignored(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': ['http://home'], 'home_chain': True},
+            {'name': 'cp', 'chain_id': 'cp-1', 'rests': [''], 'rpcs': [''], 'home_chain': False},
+        ]
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    cfg = Config(p)
+    assert cfg.chains[1].rests == []
+    assert cfg.chains[1].rpcs == []
+
+
+def test_home_chain_requires_valid_rest_endpoint(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': [''], 'home_chain': True},
+        ]
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    with pytest.raises(ValueError, match='Home chain'):
+        Config(p)
+
+
+def test_rejects_invalid_endpoint_url(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': ['http://home'], 'home_chain': True},
+            {'name': 'cp', 'chain_id': 'cp-1', 'rests': ['not-a-url'], 'home_chain': False},
+        ]
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    with pytest.raises(ValueError, match='invalid URL'):
         Config(p)
     data['chains'][0]['home_chain'] = True
     data['chains'][1]['home_chain'] = True

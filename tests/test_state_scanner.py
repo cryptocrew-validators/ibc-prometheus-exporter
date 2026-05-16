@@ -25,6 +25,8 @@ class DummyCfg:
     blacklist_channels = []
     state_refresh_interval = 0
     state_scan_timeout = 1
+    omit_closed_channels = False
+    omit_inactive_clients = False
 
 @pytest.fixture
 def scanner():
@@ -55,6 +57,8 @@ def test_scan_all(scanner):
     assert sorted(scanner.clients) == ['c1', 'c2']
     assert scanner.connections == ['conn1']
     assert ('conn1', 'p', 'c', 'cp', 'cc', 'cp') in scanner.channels
+    assert scanner.client_status_map == {'c1': 'unknown', 'c2': 'unknown'}
+    assert scanner.channel_state_map[('unused', 'conn1', 'p', 'c')] == 'unknown'
 
 
 class DummyClientWith404(DummyClient):
@@ -133,3 +137,96 @@ def test_skips_wrong_counterparty():
     assert scanner.clients == ['c1']
     assert scanner.connections == ['conn1']
 
+
+def test_scan_keeps_previous_state_on_failure():
+    class FailingClient(DummyClient):
+        def query(self, path, params=None, timeout=None):
+            raise RuntimeError("boom")
+
+    cfg = DummyCfg()
+    scanner = StateScanner(FailingClient({}), cfg, ['cp'])
+    scanner.clients = ['old-client']
+    assert scanner.scan() is False
+    assert scanner.clients == ['old-client']
+    assert scanner.last_scan == 0
+
+
+def test_scan_fails_on_repeated_pagination_key():
+    data = {
+        '/ibc/core/client/v1/client_states': {
+            'client_states': [],
+            'pagination': {'next_key': 'same'},
+        },
+        '/ibc/core/client/v1/client_states?pagination.key=same': {
+            'client_states': [],
+            'pagination': {'next_key': 'same'},
+        },
+    }
+    cfg = DummyCfg()
+    scanner = StateScanner(DummyClient(data), cfg, ['cp'])
+    assert scanner.scan() is False
+    assert scanner.last_scan == 0
+
+
+def test_omit_inactive_clients():
+    data = {
+        '/ibc/core/client/v1/client_states': {
+            'client_states': [
+                {'client_id': 'c1', 'client_state': {'chain_id': 'cp'}},
+                {'client_id': 'c2', 'client_state': {'chain_id': 'cp'}},
+            ]
+        },
+        '/ibc/core/client/v1/client_status/c1': {'status': 'Active'},
+        '/ibc/core/client/v1/client_status/c2': {'status': 'Expired'},
+        '/ibc/core/connection/v1/client_connections/c1': {
+            'connection_paths': ['conn1']
+        },
+        '/ibc/core/channel/v1/connections/conn1/channels': {
+            'channels': []
+        },
+    }
+
+    class Cfg(DummyCfg):
+        omit_inactive_clients = True
+
+    scanner = StateScanner(DummyClient(data), Cfg(), ['cp'])
+    assert scanner.scan() is True
+    assert scanner.clients == ['c1']
+    assert scanner.client_status_map == {'c1': 'active'}
+
+
+def test_omit_closed_channels():
+    data = {
+        '/ibc/core/client/v1/client_states': {
+            'client_states': [
+                {'client_id': 'c1', 'client_state': {'chain_id': 'cp'}},
+            ]
+        },
+        '/ibc/core/connection/v1/client_connections/c1': {
+            'connection_paths': ['conn1']
+        },
+        '/ibc/core/channel/v1/connections/conn1/channels': {
+            'channels': [
+                {
+                    'port_id': 'p',
+                    'channel_id': 'open',
+                    'state': 'STATE_OPEN',
+                    'counterparty': {'port_id': 'cp', 'channel_id': 'cc-open'},
+                },
+                {
+                    'port_id': 'p',
+                    'channel_id': 'closed',
+                    'state': 'STATE_CLOSED',
+                    'counterparty': {'port_id': 'cp', 'channel_id': 'cc-closed'},
+                },
+            ]
+        },
+    }
+
+    class Cfg(DummyCfg):
+        omit_closed_channels = True
+
+    scanner = StateScanner(DummyClient(data), Cfg(), ['cp'])
+    assert scanner.scan() is True
+    assert scanner.channels == [('conn1', 'p', 'open', 'cp', 'cc-open', 'cp')]
+    assert scanner.channel_state_map == {('unused', 'conn1', 'p', 'open'): 'open'}

@@ -1,9 +1,29 @@
+from __future__ import annotations
+
 import logging
 from typing import List, Optional, Set
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+class RESTClientError(Exception):
+    """Base error for REST client failures."""
+
+
+class RESTQueryError(RESTClientError):
+    """Raised when a query cannot be completed against any REST endpoint."""
+
+    def __init__(self, path: str, endpoint: str, cause: Exception | None = None):
+        self.path = path
+        self.endpoint = endpoint
+        self.cause = cause
+        self.status_code = getattr(getattr(cause, "response", None), "status_code", None)
+        msg = f"REST query failed for {path} on {endpoint or '<empty endpoint>'}"
+        if cause is not None:
+            msg = f"{msg}: {cause}"
+        super().__init__(msg)
 
 
 class RESTClient:
@@ -15,17 +35,34 @@ class RESTClient:
     ``node_info`` endpoint which exposes the chain ID of the node.
     """
 
-    def __init__(self, primary_endpoint: str, expected_chain_id: str, chain_name: str):
-        self.primary = primary_endpoint.rstrip("/")
+    def __init__(
+        self,
+        primary_endpoint: str,
+        expected_chain_id: str,
+        chain_name: str,
+        fallback_endpoints: Optional[List[str]] = None,
+        enable_chain_registry_fallbacks: bool = False,
+    ):
+        self.primary = (primary_endpoint or "").strip().rstrip("/")
         self.expected_chain_id = expected_chain_id
         self.chain_name = chain_name
-        self.endpoint = self.primary
         self.fallbacks: List[str] = []
-        self._loaded_fallbacks = False
+        for endpoint in fallback_endpoints or []:
+            endpoint = endpoint.strip().rstrip("/")
+            if endpoint and endpoint != self.primary and endpoint not in self.fallbacks:
+                self.fallbacks.append(endpoint)
+        if not self.primary and not self.fallbacks and not enable_chain_registry_fallbacks:
+            raise ValueError(f"No REST endpoints configured for chain {expected_chain_id}")
+        self.endpoint = self.primary or (self.fallbacks[0] if self.fallbacks else "")
+        self.enable_chain_registry_fallbacks = enable_chain_registry_fallbacks
+        self._loaded_fallbacks = not enable_chain_registry_fallbacks
         self.unhealthy: Set[str] = set()
 
     def _load_fallbacks(self) -> None:
         """Load REST fallbacks from the Cosmos chain-registry."""
+        if not self.enable_chain_registry_fallbacks:
+            self._loaded_fallbacks = True
+            return
         try:
             url = (
                 "https://raw.githubusercontent.com/cosmos/chain-registry/master/"
@@ -35,8 +72,8 @@ class RESTClient:
             resp.raise_for_status()
             data = resp.json()
             for api in data.get("apis", {}).get("rest", []):
-                addr = api.get("address", "").rstrip("/")
-                if addr and addr != self.primary:
+                addr = api.get("address", "").strip().rstrip("/")
+                if addr and addr != self.primary and addr not in self.fallbacks:
                     self.fallbacks.append(addr)
             logger.info(
                 "Loaded %d fallback REST endpoint(s) for chain %s",
@@ -52,7 +89,9 @@ class RESTClient:
         """Check the health of the current endpoint and switch if necessary."""
         if not self._loaded_fallbacks:
             self._load_fallbacks()
-        endpoints = [self.primary] + self.fallbacks
+        endpoints = self.endpoints()
+        if not endpoints:
+            return False
         if len(self.unhealthy) >= len(endpoints):
             self.unhealthy.clear()
         for ep in endpoints:
@@ -82,10 +121,29 @@ class RESTClient:
                 continue
         return False
 
+    def endpoints(self) -> List[str]:
+        """Return all known endpoints, preserving primary-first ordering."""
+        if not self._loaded_fallbacks:
+            self._load_fallbacks()
+        endpoints = []
+        for endpoint in [self.primary] + self.fallbacks:
+            if endpoint and endpoint not in endpoints:
+                endpoints.append(endpoint)
+        if self.endpoint not in endpoints and endpoints:
+            self.endpoint = endpoints[0]
+        return endpoints
+
     def query(self, path: str, params: Optional[dict] = None, timeout: int = 3) -> dict:
         """Perform a GET request on the current REST endpoint."""
+        if not path.startswith("/"):
+            raise ValueError(f"REST query path must start with '/': {path}")
+
         attempts = 0
-        while attempts < len([self.primary] + self.fallbacks):
+        last_error: Exception | None = None
+        endpoints = self.endpoints()
+        if not endpoints:
+            raise RESTQueryError(path, self.endpoint, ValueError("no REST endpoints available"))
+        while attempts < len(endpoints):
             url = f"{self.endpoint}{path}"
             logger.debug("GET %s params=%s", url, params)
             try:
@@ -94,11 +152,12 @@ class RESTClient:
                 r.raise_for_status()
                 return r.json()
             except Exception as e:  # pragma: no cover - network failures
+                last_error = e
                 logger.warning("REST query failed for %s: %s", url, e)
                 self.unhealthy.add(self.endpoint)
                 if not self.health():
                     break
+                endpoints = self.endpoints()
             attempts += 1
         logger.error("All REST endpoints failed for %s", path)
-        return {}
-
+        raise RESTQueryError(path, self.endpoint, last_error)

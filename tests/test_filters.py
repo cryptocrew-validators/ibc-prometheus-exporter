@@ -16,7 +16,14 @@ def test_packet_filter_deny():
     assert pf2.matches('a','b')
 
 def test_excluded_sequences():
-    ex = ExcludedSequences({'ch':[1,'2-3']})
-    assert ex.is_excluded('ch',1)
-    assert ex.is_excluded('ch',2)
-    assert not ex.is_excluded('ch',4)
+    ex = ExcludedSequences({'chain-1': {'ch': [1, '2-3']}})
+    assert ex.is_excluded('ch', 1, 'chain-1')
+    assert ex.is_excluded('ch', 2, 'chain-1')
+    assert not ex.is_excluded('ch', 4, 'chain-1')
+    assert not ex.is_excluded('ch', 1, 'chain-2')
+
+
+def test_excluded_sequences_legacy_flat_form():
+    ex = ExcludedSequences({'ch': [1, '2-3']})
+    assert ex.is_excluded('ch', 1)
+    assert ex.is_excluded('ch', 2, 'any-chain')

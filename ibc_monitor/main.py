@@ -11,7 +11,7 @@ def main():
     )
     parser.add_argument(
         '--config', '-c', type=Path,
-        default=Path('config.toml.example'),
+        default=Path('config.toml'),
         help="Path to TOML configuration file",
     )
     args = parser.parse_args()
