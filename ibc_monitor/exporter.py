@@ -122,11 +122,15 @@ class IBCExporter:
         # Build REST clients for counterparties (one per chain)
         self.rest_by_chain = {}
         for c in self.cp_chain_cfgs:
-            if not c.rests:
-                logger.warning("No REST endpoints configured for counterparty chain %s; it will be skipped", c.chain_id)
+            if not c.rests and not self.cfg.enable_chain_registry_fallbacks:
+                logger.warning(
+                    "No REST endpoints configured for counterparty chain %s; it will be skipped",
+                    c.chain_id,
+                )
                 continue
+            primary_rest = c.rests[0] if c.rests else ""
             self.rest_by_chain[c.chain_id] = RESTClient(
-                c.rests[0],
+                primary_rest,
                 c.chain_id,
                 c.name,
                 fallback_endpoints=c.rests[1:],
@@ -203,12 +207,12 @@ class IBCExporter:
     def _set_rest_health(self, chain_id: str, endpoint: str, healthy: bool) -> None:
         if not hasattr(self, "_rest_health_labelsets"):
             self._rest_health_labelsets = set()
+        endpoint = endpoint or "unavailable"
         for old_chain_id, old_endpoint in list(self._rest_health_labelsets):
             if old_chain_id == chain_id and old_endpoint != endpoint:
                 REST_HEALTH.labels(chain_id=old_chain_id, endpoint=old_endpoint).set(0)
-        if endpoint:
-            REST_HEALTH.labels(chain_id=chain_id, endpoint=endpoint).set(1 if healthy else 0)
-            self._rest_health_labelsets.add((chain_id, endpoint))
+        REST_HEALTH.labels(chain_id=chain_id, endpoint=endpoint).set(1 if healthy else 0)
+        self._rest_health_labelsets.add((chain_id, endpoint))
 
     @staticmethod
     def _metric_labels_tuple(
@@ -535,7 +539,9 @@ class IBCExporter:
 
             # ---- FAST ACK BACKLOG (home) ----
             rc = self.rest_by_chain.get(cp_chain)
-            if rc and valid_seqs and health_by_chain.get(cp_chain, False):
+            if not valid_seqs:
+                self._record_ack_backlog(label_values, key_home, set(), now)
+            elif rc and health_by_chain.get(cp_chain, False):
                 try:
                     acked_on_cp = self._filtered_ack_sequences(rc, cp_port, cp_channel, valid_seqs)
                     unreceived = self._unreceived_acks(self.home_client, port, channel, acked_on_cp)
@@ -544,6 +550,16 @@ class IBCExporter:
                     failed_backlog_chains.add(home_chain_id)
                     self._inc_error(home_chain_id, "ack")
                     logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, home_chain_id, e)
+            else:
+                failed_backlog_chains.add(home_chain_id)
+                self._inc_error(home_chain_id, "ack")
+                logger.warning(
+                    "Ack backlog skipped for %s/%s on %s: counterparty chain %s is unavailable",
+                    port,
+                    channel,
+                    home_chain_id,
+                    cp_chain,
+                )
 
             pending = self.pending_packets.get(key_home, {})
             apending = self.pending_acks.get(key_home, {})
@@ -602,18 +618,21 @@ class IBCExporter:
                 continue
 
             # ---- FAST ACK BACKLOG (counterparty side) ----
-            try:
-                acked_on_home = self._filtered_ack_sequences(
-                    self.home_client, cp_port, cp_channel, valid_seqs
-                )
-                unreceived_cp = self._unreceived_acks(
-                    rc, port, channel, acked_on_home
-                )
-                self._record_ack_backlog(label_values, key_cp, unreceived_cp, now)
-            except Exception as e:
-                failed_backlog_chains.add(cp_chain)
-                self._inc_error(cp_chain, "ack")
-                logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, cp_chain, e)
+            if not valid_seqs:
+                self._record_ack_backlog(label_values, key_cp, set(), now)
+            else:
+                try:
+                    acked_on_home = self._filtered_ack_sequences(
+                        self.home_client, cp_port, cp_channel, valid_seqs
+                    )
+                    unreceived_cp = self._unreceived_acks(
+                        rc, port, channel, acked_on_home
+                    )
+                    self._record_ack_backlog(label_values, key_cp, unreceived_cp, now)
+                except Exception as e:
+                    failed_backlog_chains.add(cp_chain)
+                    self._inc_error(cp_chain, "ack")
+                    logger.warning("Ack backlog query failed for %s/%s on %s: %s", port, channel, cp_chain, e)
 
             pending = self.pending_packets.get(key_cp, {})
             apending = self.pending_acks.get(key_cp, {})

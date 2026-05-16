@@ -43,17 +43,17 @@ class RESTClient:
         fallback_endpoints: Optional[List[str]] = None,
         enable_chain_registry_fallbacks: bool = False,
     ):
-        self.primary = primary_endpoint.strip().rstrip("/")
-        if not self.primary:
-            raise ValueError(f"REST endpoint for chain {expected_chain_id} is empty")
+        self.primary = (primary_endpoint or "").strip().rstrip("/")
         self.expected_chain_id = expected_chain_id
         self.chain_name = chain_name
-        self.endpoint = self.primary
         self.fallbacks: List[str] = []
         for endpoint in fallback_endpoints or []:
             endpoint = endpoint.strip().rstrip("/")
             if endpoint and endpoint != self.primary and endpoint not in self.fallbacks:
                 self.fallbacks.append(endpoint)
+        if not self.primary and not self.fallbacks and not enable_chain_registry_fallbacks:
+            raise ValueError(f"No REST endpoints configured for chain {expected_chain_id}")
+        self.endpoint = self.primary or (self.fallbacks[0] if self.fallbacks else "")
         self.enable_chain_registry_fallbacks = enable_chain_registry_fallbacks
         self._loaded_fallbacks = not enable_chain_registry_fallbacks
         self.unhealthy: Set[str] = set()
@@ -73,7 +73,7 @@ class RESTClient:
             data = resp.json()
             for api in data.get("apis", {}).get("rest", []):
                 addr = api.get("address", "").strip().rstrip("/")
-                if addr and addr != self.primary:
+                if addr and addr != self.primary and addr not in self.fallbacks:
                     self.fallbacks.append(addr)
             logger.info(
                 "Loaded %d fallback REST endpoint(s) for chain %s",
@@ -89,7 +89,9 @@ class RESTClient:
         """Check the health of the current endpoint and switch if necessary."""
         if not self._loaded_fallbacks:
             self._load_fallbacks()
-        endpoints = [self.primary] + self.fallbacks
+        endpoints = self.endpoints()
+        if not endpoints:
+            return False
         if len(self.unhealthy) >= len(endpoints):
             self.unhealthy.clear()
         for ep in endpoints:
@@ -127,6 +129,8 @@ class RESTClient:
         for endpoint in [self.primary] + self.fallbacks:
             if endpoint and endpoint not in endpoints:
                 endpoints.append(endpoint)
+        if self.endpoint not in endpoints and endpoints:
+            self.endpoint = endpoints[0]
         return endpoints
 
     def query(self, path: str, params: Optional[dict] = None, timeout: int = 3) -> dict:
@@ -136,7 +140,10 @@ class RESTClient:
 
         attempts = 0
         last_error: Exception | None = None
-        while attempts < len(self.endpoints()):
+        endpoints = self.endpoints()
+        if not endpoints:
+            raise RESTQueryError(path, self.endpoint, ValueError("no REST endpoints available"))
+        while attempts < len(endpoints):
             url = f"{self.endpoint}{path}"
             logger.debug("GET %s params=%s", url, params)
             try:
@@ -150,6 +157,7 @@ class RESTClient:
                 self.unhealthy.add(self.endpoint)
                 if not self.health():
                     break
+                endpoints = self.endpoints()
             attempts += 1
         logger.error("All REST endpoints failed for %s", path)
         raise RESTQueryError(path, self.endpoint, last_error)

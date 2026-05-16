@@ -173,3 +173,19 @@ def test_home_chain_counterparties(tmp_path):
     #  - exp.rest_by_chain keys
     assert sorted(exp.scanner.counterparty_chain_ids) == ["a-1", "b-1"]
     assert set(exp.rest_by_chain.keys()) == {"a-1", "b-1"}
+
+
+def test_chain_registry_fallback_builds_counterparty_clients_without_rest(tmp_path):
+    data = {
+        "chains": [
+            {"name": "h", "chain_id": "h-1", "rests": ["http://h"], "home_chain": True},
+            {"name": "a", "chain_id": "a-1", "rests": [""], "home_chain": False},
+        ],
+        "exporter": {"enable_chain_registry_fallbacks": True},
+    }
+    p = tmp_path / "c.toml"
+    p.write_text(toml.dumps(data))
+    cfg = Config(p)
+    exp = IBCExporter(cfg)
+    assert set(exp.rest_by_chain.keys()) == {"a-1"}
+    assert exp.rest_by_chain["a-1"].endpoint == ""
