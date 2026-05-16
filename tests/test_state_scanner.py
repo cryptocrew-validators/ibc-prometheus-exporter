@@ -133,3 +133,32 @@ def test_skips_wrong_counterparty():
     assert scanner.clients == ['c1']
     assert scanner.connections == ['conn1']
 
+
+def test_scan_keeps_previous_state_on_failure():
+    class FailingClient(DummyClient):
+        def query(self, path, params=None, timeout=None):
+            raise RuntimeError("boom")
+
+    cfg = DummyCfg()
+    scanner = StateScanner(FailingClient({}), cfg, ['cp'])
+    scanner.clients = ['old-client']
+    assert scanner.scan() is False
+    assert scanner.clients == ['old-client']
+    assert scanner.last_scan == 0
+
+
+def test_scan_fails_on_repeated_pagination_key():
+    data = {
+        '/ibc/core/client/v1/client_states': {
+            'client_states': [],
+            'pagination': {'next_key': 'same'},
+        },
+        '/ibc/core/client/v1/client_states?pagination.key=same': {
+            'client_states': [],
+            'pagination': {'next_key': 'same'},
+        },
+    }
+    cfg = DummyCfg()
+    scanner = StateScanner(DummyClient(data), cfg, ['cp'])
+    assert scanner.scan() is False
+    assert scanner.last_scan == 0

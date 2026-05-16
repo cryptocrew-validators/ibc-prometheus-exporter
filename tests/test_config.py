@@ -74,6 +74,45 @@ def test_requires_single_home_chain(tmp_path):
     p.write_text(toml.dumps(data))
     with pytest.raises(ValueError):
         Config(p)
+
+
+def test_empty_counterparty_endpoints_are_ignored(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': ['http://home'], 'home_chain': True},
+            {'name': 'cp', 'chain_id': 'cp-1', 'rests': [''], 'rpcs': [''], 'home_chain': False},
+        ]
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    cfg = Config(p)
+    assert cfg.chains[1].rests == []
+    assert cfg.chains[1].rpcs == []
+
+
+def test_home_chain_requires_valid_rest_endpoint(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': [''], 'home_chain': True},
+        ]
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    with pytest.raises(ValueError, match='Home chain'):
+        Config(p)
+
+
+def test_rejects_invalid_endpoint_url(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': ['http://home'], 'home_chain': True},
+            {'name': 'cp', 'chain_id': 'cp-1', 'rests': ['not-a-url'], 'home_chain': False},
+        ]
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    with pytest.raises(ValueError, match='invalid URL'):
+        Config(p)
     data['chains'][0]['home_chain'] = True
     data['chains'][1]['home_chain'] = True
     p.write_text(toml.dumps(data))

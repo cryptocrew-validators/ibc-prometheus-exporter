@@ -9,13 +9,16 @@ import toml
 class FakeHomeClient:
     def __init__(self):
         self.endpoint = "http://home"
+        self.fail_commitments = False
 
     def health(self):
         return True
 
-    def query(self, path, params=None):
+    def query(self, path, params=None, timeout=None):
         # Local commitments: 1,2,3 (2 is excluded by config in the test)
         if "packet_commitments" in path and "unreceived_acks" not in path:
+            if self.fail_commitments:
+                raise RuntimeError("commitment query failed")
             return {"commitments": [{"sequence": "1"}, {"sequence": "2"}, {"sequence": "3"}]}
 
         # Accept ANY form of unreceived_acks request and always pretend "3" is unreceived.
@@ -38,7 +41,7 @@ class FakeCounterpartyClient:
     def health(self):
         return True
 
-    def query(self, path, params=None):
+    def query(self, path, params=None, timeout=None):
         # Simulate filtered acks endpoint (exporter calls with sequences filter).
         # Say CP has acks for sequences {2,3}. That's enough for the test logic.
         if "packet_acknowledgements" in path:
@@ -57,7 +60,7 @@ class FakeScanner:
         self.cp_channels = []
 
     def scan(self):
-        pass
+        return True
 
 
 def build_home_anchored_exporter():
@@ -124,6 +127,30 @@ def test_excluded_sequences_filtered():
 
     # Fast-ack path: CP acks {2,3}; home unreceived_acks(...) => {3}; oldest = 3
     assert metrics.ACK_OLDEST_SEQ.labels(**labels)._value.get() == 3
+
+
+def test_failed_commitment_query_does_not_clear_existing_backlog():
+    metrics.BACKLOG_SIZE.clear()
+    metrics.BACKLOG_OLDEST_SEQ.clear()
+    metrics.ACK_OLDEST_SEQ.clear()
+    metrics.BACKLOG_UPDATED.clear()
+
+    exporter = build_home_anchored_exporter()
+    exporter.update_metrics()
+    exporter.home_client.fail_commitments = True
+    exporter.update_metrics()
+
+    labels = dict(
+        chain_id="chain-1",
+        connection_id="connection-1",
+        port_id="port1",
+        channel_id="ch1",
+        counterparty_chain_id="chain-2",
+        counterparty_port_id="port2",
+        counterparty_channel_id="ch2",
+    )
+    assert metrics.BACKLOG_SIZE.labels(**labels)._value.get() == 2
+    assert set(exporter.pending_packets[("chain-1", "connection-1", "port1", "ch1")]) == {1, 3}
 
 
 def test_home_chain_counterparties(tmp_path):
