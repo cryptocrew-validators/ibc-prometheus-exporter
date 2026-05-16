@@ -1,5 +1,8 @@
 name: Update Metrics Docs
 
+permissions:
+  contents: write
+
 on:
   push:
     paths:
