@@ -31,6 +31,18 @@ pip install -r requirements-dev.txt
 Metrics are exposed on the configured address and port and can be scraped by
 Prometheus.
 
+## Grafana Dashboard
+
+An importable Grafana dashboard is available at
+`grafana/ibc-exporter-dashboard.json`. Import it in Grafana and select the
+Prometheus datasource that scrapes this exporter.
+
+The dashboard includes REST endpoint health, send and acknowledgement backlog
+size and age, client trust-period freshness, channel states, exporter update
+duration, and error-rate panels. It also provides filters for chain,
+counterparty chain, connection, port, channel, client status, channel state,
+and error stage.
+
 Configured REST endpoints are used in order. Chain-registry fallback discovery
 is disabled by default for predictable production behavior; enable it explicitly
 with `enable_chain_registry_fallbacks = true` under `[exporter]` if desired.
@@ -56,6 +68,7 @@ The following metrics are exported:
 |---|---|---|
 | `ibc_ack_packet_backlog_oldest_sequence` | Oldest AcknowledgementPacket sequence | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id |
 | `ibc_ack_packet_backlog_oldest_timestamp_seconds` | Timestamp of oldest AcknowledgementPacket in backlog | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id |
+| `ibc_ack_packet_backlog_size` | Total AcknowledgementPacket events backlog | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id |
 | `ibc_backlog_last_update_time_seconds` | Last successful update time for backlog metrics | chain_id |
 | `ibc_channel_state` | IBC channel state as a labeled gauge with value 1 for the current state | chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id, state |
 | `ibc_client_last_update_timestamp_seconds` | Last consensus state update time | client_id, chain_id, counterparty_chain_id, counterparty_client_id |
