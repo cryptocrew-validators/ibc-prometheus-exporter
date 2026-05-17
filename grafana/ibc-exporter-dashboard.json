@@ -109,7 +109,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "100 * avg(ibc_rest_health{chain_id=~\"${chain_id:regex}\"})",
+          "expr": "100 * avg(ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"})",
           "instant": true,
           "legendFormat": "REST availability",
           "range": false,
@@ -176,7 +176,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "count(count by (chain_id) (ibc_rest_health{chain_id=~\"${chain_id:regex}\"}))",
+          "expr": "count(count by (chain_id) (ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}))",
           "instant": true,
           "legendFormat": "chains",
           "range": false,
@@ -251,7 +251,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(ibc_send_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) or vector(0)",
+          "expr": "sum(ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) or vector(0)",
           "instant": true,
           "legendFormat": "send backlog",
           "range": false,
@@ -326,7 +326,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max((time() - ibc_send_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
+          "expr": "max((time() - ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
           "instant": true,
           "legendFormat": "oldest send age",
           "range": false,
@@ -401,7 +401,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max((time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
+          "expr": "max((time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
           "instant": true,
           "legendFormat": "oldest ack age",
           "range": false,
@@ -476,7 +476,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(ibc_exporter_update_errors_total{chain_id=~\"${chain_id:regex}\", stage=~\"${stage:regex}\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(ibc_exporter_update_errors_total{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", stage=~\"${stage:regex}\"}[$__range])) or vector(0)",
           "instant": true,
           "legendFormat": "errors",
           "range": false,
@@ -606,7 +606,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ibc_rest_health{chain_id=~\"${chain_id:regex}\"}",
+          "expr": "ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}",
           "instant": false,
           "legendFormat": "{{chain_id}} {{endpoint}}",
           "range": true,
@@ -732,7 +732,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ibc_rest_health{chain_id=~\"${chain_id:regex}\"}",
+          "expr": "ibc_rest_health{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{endpoint}}",
@@ -825,7 +825,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "time() - ibc_backlog_last_update_time_seconds{chain_id=~\"${chain_id:regex}\"}",
+          "expr": "time() - ibc_backlog_last_update_time_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}",
           "instant": true,
           "legendFormat": "{{chain_id}}",
           "range": false,
@@ -942,7 +942,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id) (ibc_send_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
+          "expr": "sum by (chain_id) (ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
           "instant": false,
           "legendFormat": "{{chain_id}}",
           "range": true,
@@ -1017,7 +1017,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max((time() - ibc_send_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
+          "expr": "max((time() - ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
           "instant": true,
           "legendFormat": "oldest send age",
           "range": false,
@@ -1093,7 +1093,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(6, ibc_send_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
+          "expr": "topk(6, ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}} -> {{counterparty_chain_id}} {{counterparty_port_id}}/{{counterparty_channel_id}}",
           "range": false,
@@ -1207,7 +1207,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(50, (time() - ibc_send_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0)",
+          "expr": "topk(50, (time() - ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_send_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0)",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
@@ -1317,7 +1317,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(6, ibc_send_packet_backlog_oldest_sequence{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
+          "expr": "topk(6, ibc_send_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
           "range": false,
@@ -1406,7 +1406,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(50, ibc_send_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
+          "expr": "topk(50, ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
@@ -1557,7 +1557,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id) ((ibc_ack_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
+          "expr": "sum by (chain_id) ((ibc_ack_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
           "instant": false,
           "legendFormat": "{{chain_id}}",
           "range": true,
@@ -1632,7 +1632,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max((time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
+          "expr": "max((time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0) or vector(0)",
           "instant": true,
           "legendFormat": "oldest ack age",
           "range": false,
@@ -1708,7 +1708,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(6, (ibc_ack_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
+          "expr": "topk(6, (ibc_ack_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}} -> {{counterparty_chain_id}} {{counterparty_port_id}}/{{counterparty_channel_id}}",
           "range": false,
@@ -1823,7 +1823,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(50, (time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0)",
+          "expr": "topk(50, (time() - ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"}) and ibc_ack_packet_backlog_oldest_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > 0)",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
@@ -1933,7 +1933,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(6, ibc_ack_packet_backlog_oldest_sequence{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
+          "expr": "topk(6, ibc_ack_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"})",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
           "range": false,
@@ -2023,7 +2023,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(50, (ibc_ack_packet_backlog_size{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
+          "expr": "topk(50, (ibc_ack_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} or on (chain_id, connection_id, port_id, channel_id, counterparty_chain_id, counterparty_port_id, counterparty_channel_id) (ibc_ack_packet_backlog_oldest_sequence{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\"} > bool 0)))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}}",
@@ -2137,7 +2137,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id, status) (ibc_client_status{chain_id=~\"${chain_id:regex}\", status=~\"${client_status:regex}\"})",
+          "expr": "sum by (chain_id, status) (ibc_client_status{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", status=~\"${client_status:regex}\"})",
           "instant": true,
           "legendFormat": "{{chain_id}} {{status}}",
           "range": false,
@@ -2212,7 +2212,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max(time() - ibc_client_last_update_timestamp_seconds{chain_id=~\"${chain_id:regex}\"}) or vector(0)",
+          "expr": "max(time() - ibc_client_last_update_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) or vector(0)",
           "instant": true,
           "legendFormat": "consensus age",
           "range": false,
@@ -2289,7 +2289,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max((100 * (time() - ibc_client_last_update_timestamp_seconds{chain_id=~\"${chain_id:regex}\"}) / ibc_client_trusting_period_seconds{chain_id=~\"${chain_id:regex}\"}) and on (client_id, chain_id, counterparty_chain_id, counterparty_client_id) ibc_client_trusting_period_seconds{chain_id=~\"${chain_id:regex}\"} > 0) or vector(0)",
+          "expr": "max((100 * (time() - ibc_client_last_update_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) / ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) and on (client_id, chain_id, counterparty_chain_id, counterparty_client_id) ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"} > 0) or vector(0)",
           "instant": true,
           "legendFormat": "trust elapsed",
           "range": false,
@@ -2370,7 +2370,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ibc_client_status{chain_id=~\"${chain_id:regex}\", status=~\"${client_status:regex}\"}",
+          "expr": "ibc_client_status{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", status=~\"${client_status:regex}\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{client_id}} {{status}}",
@@ -2464,7 +2464,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(100, (100 * (time() - ibc_client_last_update_timestamp_seconds{chain_id=~\"${chain_id:regex}\"}) / ibc_client_trusting_period_seconds{chain_id=~\"${chain_id:regex}\"}) and on (client_id, chain_id, counterparty_chain_id, counterparty_client_id) ibc_client_trusting_period_seconds{chain_id=~\"${chain_id:regex}\"} > 0)",
+          "expr": "topk(100, (100 * (time() - ibc_client_last_update_timestamp_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) / ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}) and on (client_id, chain_id, counterparty_chain_id, counterparty_client_id) ibc_client_trusting_period_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"} > 0)",
           "instant": true,
           "legendFormat": "{{chain_id}} {{client_id}} -> {{counterparty_chain_id}}",
           "range": false,
@@ -2544,7 +2544,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id, state) (ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\", state=~\"${channel_state:regex}\"})",
+          "expr": "sum by (chain_id, state) (ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\", state=~\"${channel_state:regex}\"})",
           "instant": true,
           "legendFormat": "{{chain_id}} {{state}}",
           "range": false,
@@ -2625,7 +2625,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\", state=~\"${channel_state:regex}\"}",
+          "expr": "ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\", channel_id=~\"${channel_id:regex}\", state=~\"${channel_state:regex}\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{port_id}}/{{channel_id}} {{state}}",
@@ -2778,7 +2778,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ibc_exporter_update_duration_seconds{chain_id=~\"${chain_id:regex}\"}",
+          "expr": "ibc_exporter_update_duration_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}",
           "instant": false,
           "legendFormat": "{{chain_id}}",
           "range": true,
@@ -2882,7 +2882,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id, stage) (rate(ibc_exporter_update_errors_total{chain_id=~\"${chain_id:regex}\", stage=~\"${stage:regex}\"}[$__rate_interval]))",
+          "expr": "sum by (chain_id, stage) (rate(ibc_exporter_update_errors_total{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", stage=~\"${stage:regex}\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{chain_id}} {{stage}}",
           "range": true,
@@ -2970,7 +2970,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "time() - ibc_backlog_last_update_time_seconds{chain_id=~\"${chain_id:regex}\"}",
+          "expr": "time() - ibc_backlog_last_update_time_seconds{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}}",
@@ -3074,7 +3074,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (chain_id, stage) (increase(ibc_exporter_update_errors_total{chain_id=~\"${chain_id:regex}\", stage=~\"${stage:regex}\"}[$__range]))",
+          "expr": "sum by (chain_id, stage) (increase(ibc_exporter_update_errors_total{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", stage=~\"${stage:regex}\"}[$__range]))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{chain_id}} {{stage}}",
@@ -3118,6 +3118,31 @@
       {
         "allValue": ".*",
         "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(ibc_rest_health, job)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Job",
+        "multi": true,
+        "name": "job",
+        "options": [],
+        "query": "label_values(ibc_rest_health, job)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
           "selected": true,
           "text": [
             "All"
@@ -3130,14 +3155,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_rest_health, chain_id)",
+        "definition": "label_values(ibc_rest_health{job=~\"${job:regex}\"}, chain_id)",
         "hide": 0,
         "includeAll": true,
         "label": "Chain",
         "multi": true,
         "name": "chain_id",
         "options": [],
-        "query": "label_values(ibc_rest_health, chain_id)",
+        "query": "label_values(ibc_rest_health{job=~\"${job:regex}\"}, chain_id)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -3155,14 +3180,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_send_packet_backlog_size{chain_id=~\"${chain_id:regex}\"}, counterparty_chain_id)",
+        "definition": "label_values(ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, counterparty_chain_id)",
         "hide": 0,
         "includeAll": true,
         "label": "Counterparty",
         "multi": true,
         "name": "counterparty_chain_id",
         "options": [],
-        "query": "label_values(ibc_send_packet_backlog_size{chain_id=~\"${chain_id:regex}\"}, counterparty_chain_id)",
+        "query": "label_values(ibc_send_packet_backlog_size{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, counterparty_chain_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3180,14 +3205,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\"}, connection_id)",
+        "definition": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\"}, connection_id)",
         "hide": 0,
         "includeAll": true,
         "label": "Connection",
         "multi": true,
         "name": "connection_id",
         "options": [],
-        "query": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\"}, connection_id)",
+        "query": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\"}, connection_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3205,14 +3230,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\"}, port_id)",
+        "definition": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\"}, port_id)",
         "hide": 0,
         "includeAll": true,
         "label": "Port",
         "multi": true,
         "name": "port_id",
         "options": [],
-        "query": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\"}, port_id)",
+        "query": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\"}, port_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3230,14 +3255,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\"}, channel_id)",
+        "definition": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\"}, channel_id)",
         "hide": 0,
         "includeAll": true,
         "label": "Channel",
         "multi": true,
         "name": "channel_id",
         "options": [],
-        "query": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\"}, channel_id)",
+        "query": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\", counterparty_chain_id=~\"${counterparty_chain_id:regex}\", connection_id=~\"${connection_id:regex}\", port_id=~\"${port_id:regex}\"}, channel_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3255,14 +3280,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_client_status{chain_id=~\"${chain_id:regex}\"}, status)",
+        "definition": "label_values(ibc_client_status{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, status)",
         "hide": 0,
         "includeAll": true,
         "label": "Client Status",
         "multi": true,
         "name": "client_status",
         "options": [],
-        "query": "label_values(ibc_client_status{chain_id=~\"${chain_id:regex}\"}, status)",
+        "query": "label_values(ibc_client_status{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, status)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3280,14 +3305,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\"}, state)",
+        "definition": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, state)",
         "hide": 0,
         "includeAll": true,
         "label": "Channel State",
         "multi": true,
         "name": "channel_state",
         "options": [],
-        "query": "label_values(ibc_channel_state{chain_id=~\"${chain_id:regex}\"}, state)",
+        "query": "label_values(ibc_channel_state{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, state)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3305,14 +3330,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ibc_exporter_update_errors_total{chain_id=~\"${chain_id:regex}\"}, stage)",
+        "definition": "label_values(ibc_exporter_update_errors_total{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, stage)",
         "hide": 0,
         "includeAll": true,
         "label": "Error Stage",
         "multi": true,
         "name": "stage",
         "options": [],
-        "query": "label_values(ibc_exporter_update_errors_total{chain_id=~\"${chain_id:regex}\"}, stage)",
+        "query": "label_values(ibc_exporter_update_errors_total{job=~\"${job:regex}\", chain_id=~\"${chain_id:regex}\"}, stage)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -3329,6 +3354,6 @@
   "timezone": "browser",
   "title": "IBC Prometheus Exporter",
   "uid": "ibc-prometheus-exporter",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
