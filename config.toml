@@ -4,6 +4,9 @@ chain_id = "bbn-1"
 rpcs = [ 
     "https://rpc.babylon.network" 
 ]
+# Optional explicit websocket endpoints. If omitted, the packet indexer derives
+# ws(s)://.../websocket from the active RPC endpoint.
+websockets = []
 rests = [ 
     "https://lcd.babylon.network" 
 ]
@@ -98,3 +101,16 @@ log_level = "DEBUG"
 enable_chain_registry_fallbacks = true
 omit_closed_channels = true
 omit_inactive_clients = false
+
+[indexer]
+enabled = true
+store_path = "packet-indexer.sqlite"
+backfill_on_start_blocks = 10
+gap_backfill = true
+backfill_workers = 1
+backfill_batch_size = 100
+queue_size = 10000
+prune_after_seconds = 604800
+rpc_timeout_seconds = 10
+reconnect_initial_seconds = 1
+reconnect_max_seconds = 30

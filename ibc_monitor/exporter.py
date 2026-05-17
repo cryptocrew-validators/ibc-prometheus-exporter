@@ -152,6 +152,11 @@ class IBCExporter:
             rest_by_chain=self.rest_by_chain,
             home_chain_id=self.home_chain_cfg.chain_id,
         )
+        self.packet_indexer = None
+        if getattr(self.cfg, "packet_indexer_enabled", False):
+            from ibc_monitor.packet_indexer import PacketIndexer
+
+            self.packet_indexer = PacketIndexer(self.cfg, self.scanner)
 
         # in-memory tracking
         # key: (chain_id, conn, port, channel) -> {seq: first_seen_ts}
@@ -445,9 +450,15 @@ class IBCExporter:
         # start prometheus server
         start_http_server(self.cfg.port, addr=self.cfg.address)
         logger.info(f"Exporter listening on {self.cfg.address}:{self.cfg.port}")
-        while True:
-            self.update_metrics()
-            time.sleep(self.cfg.update_interval)
+        if self.packet_indexer:
+            self.packet_indexer.start()
+        try:
+            while True:
+                self.update_metrics()
+                time.sleep(self.cfg.update_interval)
+        finally:
+            if self.packet_indexer:
+                self.packet_indexer.stop()
 
     @staticmethod
     def _inc_error(chain_id: str, stage: str) -> None:
@@ -483,6 +494,9 @@ class IBCExporter:
             health_by_chain[cid] = healthy
             self._set_rest_health(cid, rc.endpoint, healthy)
 
+        if getattr(self, "packet_indexer", None):
+            self.packet_indexer.refresh_rpc_health()
+
         if not home_healthy:
             logger.debug("Home chain %s endpoint unhealthy; skipping scan/metrics this cycle", home_chain_id)
             UPDATE_DURATION.labels(chain_id=home_chain_id).set(time.monotonic() - started)
@@ -493,6 +507,8 @@ class IBCExporter:
             self._inc_error(home_chain_id, "scan")
             UPDATE_DURATION.labels(chain_id=home_chain_id).set(time.monotonic() - started)
             return
+        if getattr(self, "packet_indexer", None):
+            self.packet_indexer.update_topology(self.scanner)
 
         # -------- client state metrics (home) --------
         for cid in self.scanner.clients:

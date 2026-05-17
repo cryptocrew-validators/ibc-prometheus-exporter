@@ -45,6 +45,7 @@ def test_config_parsing(tmp_path):
     assert chain.name == 'testchain'
     assert chain.chain_id == 'test-1'
     assert chain.rpcs == ['http://localhost:26657']
+    assert chain.websockets == []
     assert chain.rests == ['http://localhost:1317']
     assert chain.home_chain
     assert chain.whitelist_clients == ['c1']
@@ -58,6 +59,12 @@ def test_config_parsing(tmp_path):
     assert cfg.log_level == 'DEBUG'
     assert cfg.omit_closed_channels is True
     assert cfg.omit_inactive_clients is True
+    assert cfg.packet_indexer_enabled is False
+    assert cfg.packet_indexer_store_path == 'packet-indexer.sqlite'
+    assert cfg.packet_indexer_backfill_on_start_blocks == 0
+    assert cfg.packet_indexer_gap_backfill is True
+    assert cfg.packet_indexer_backfill_workers == 1
+    assert cfg.packet_indexer_backfill_batch_size == 100
     assert chain.omit_closed_channels is True
     assert chain.omit_inactive_clients is True
     assert chain.excluded_sequences == {'ch1': ['1', '2-3']}
@@ -138,4 +145,62 @@ def test_rejects_invalid_endpoint_url(tmp_path):
     data['chains'][1]['home_chain'] = True
     p.write_text(toml.dumps(data))
     with pytest.raises(ValueError):
+        Config(p)
+
+
+def test_packet_indexer_config_parsing(tmp_path):
+    data = {
+        'chains': [
+            {
+                'name': 'home',
+                'chain_id': 'home-1',
+                'rests': ['http://home-rest'],
+                'rpcs': ['https://home-rpc'],
+                'websockets': ['wss://home-rpc/websocket'],
+                'home_chain': True,
+            },
+        ],
+        'indexer': {
+            'enabled': True,
+            'store_path': 'packets.sqlite',
+            'backfill_on_start_blocks': 25,
+            'gap_backfill': False,
+            'backfill_workers': 4,
+            'backfill_batch_size': 50,
+            'queue_size': 1234,
+            'prune_after_seconds': 3600,
+            'rpc_timeout_seconds': 7,
+            'reconnect_initial_seconds': 2,
+            'reconnect_max_seconds': 40,
+        },
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+
+    cfg = Config(p)
+
+    assert cfg.chains[0].websockets == ['wss://home-rpc/websocket']
+    assert cfg.packet_indexer_enabled is True
+    assert cfg.packet_indexer_store_path == 'packets.sqlite'
+    assert cfg.packet_indexer_backfill_on_start_blocks == 25
+    assert cfg.packet_indexer_gap_backfill is False
+    assert cfg.packet_indexer_backfill_workers == 4
+    assert cfg.packet_indexer_backfill_batch_size == 50
+    assert cfg.packet_indexer_queue_size == 1234
+    assert cfg.packet_indexer_prune_after_seconds == 3600
+    assert cfg.packet_indexer_rpc_timeout == 7
+    assert cfg.packet_indexer_reconnect_initial_seconds == 2
+    assert cfg.packet_indexer_reconnect_max_seconds == 40
+
+
+def test_rejects_invalid_indexer_table(tmp_path):
+    data = {
+        'chains': [
+            {'name': 'home', 'chain_id': 'home-1', 'rests': ['http://home'], 'home_chain': True},
+        ],
+        'indexer': 'enabled',
+    }
+    p = tmp_path / 'c.toml'
+    p.write_text(toml.dumps(data))
+    with pytest.raises(ValueError, match='indexer must be a table'):
         Config(p)

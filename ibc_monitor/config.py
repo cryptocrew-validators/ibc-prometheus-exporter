@@ -30,10 +30,12 @@ class ChainConfig:
         omit_closed_channels: bool = False,
         omit_inactive_clients: bool = False,
         excluded_sequences: Optional[Dict[str, List[Any]]] = None,
+        websockets: Optional[List[str]] = None,
     ):
         self.name = name
         self.chain_id = chain_id
         self.rpcs = rpcs
+        self.websockets = websockets or []
         self.rests = rests
         self.whitelist_clients = whitelist_clients
         self.blacklist_clients = blacklist_clients
@@ -111,6 +113,9 @@ class Config:
         exporter = data.get('exporter', {})
         if not isinstance(exporter, dict):
             raise ValueError('exporter must be a table')
+        indexer = data.get('indexer', {})
+        if not isinstance(indexer, dict):
+            raise ValueError('indexer must be a table')
         omit_closed_channels = self._bool(
             exporter.get('omit_closed_channels', False),
             'exporter.omit_closed_channels',
@@ -150,6 +155,10 @@ class Config:
                     name=name,
                     chain_id=chain_id,
                     rpcs=self._endpoint_list(c.get('rpcs', []), f"{chain_id}.rpcs"),
+                    websockets=self._websocket_endpoint_list(
+                        c.get('websockets', []),
+                        f"{chain_id}.websockets",
+                    ),
                     rests=self._endpoint_list(c.get('rests', []), f"{chain_id}.rests"),
                     whitelist_clients=self._str_list(c.get('whitelist_clients', []), f"{chain_id}.whitelist_clients"),
                     blacklist_clients=self._str_list(c.get('blacklist_clients', []), f"{chain_id}.blacklist_clients"),
@@ -207,6 +216,50 @@ class Config:
         )
         self.omit_closed_channels = omit_closed_channels
         self.omit_inactive_clients = omit_inactive_clients
+        self.packet_indexer_enabled = self._bool(
+            indexer.get('enabled', False),
+            'indexer.enabled',
+        )
+        self.packet_indexer_store_path = self._optional_str(
+            indexer.get('store_path', 'packet-indexer.sqlite'),
+            'indexer.store_path',
+        )
+        self.packet_indexer_backfill_on_start_blocks = self._non_negative_int(
+            indexer.get('backfill_on_start_blocks', 0),
+            'indexer.backfill_on_start_blocks',
+        )
+        self.packet_indexer_gap_backfill = self._bool(
+            indexer.get('gap_backfill', True),
+            'indexer.gap_backfill',
+        )
+        self.packet_indexer_backfill_workers = self._positive_int(
+            indexer.get('backfill_workers', 1),
+            'indexer.backfill_workers',
+        )
+        self.packet_indexer_backfill_batch_size = self._positive_int(
+            indexer.get('backfill_batch_size', 100),
+            'indexer.backfill_batch_size',
+        )
+        self.packet_indexer_queue_size = self._positive_int(
+            indexer.get('queue_size', 10000),
+            'indexer.queue_size',
+        )
+        self.packet_indexer_prune_after_seconds = self._positive_int(
+            indexer.get('prune_after_seconds', 7 * 24 * 60 * 60),
+            'indexer.prune_after_seconds',
+        )
+        self.packet_indexer_rpc_timeout = self._positive_int(
+            indexer.get('rpc_timeout_seconds', 10),
+            'indexer.rpc_timeout_seconds',
+        )
+        self.packet_indexer_reconnect_initial_seconds = self._positive_int(
+            indexer.get('reconnect_initial_seconds', 1),
+            'indexer.reconnect_initial_seconds',
+        )
+        self.packet_indexer_reconnect_max_seconds = self._positive_int(
+            indexer.get('reconnect_max_seconds', 30),
+            'indexer.reconnect_max_seconds',
+        )
 
     @staticmethod
     def _required_str(data: Dict[str, Any], key: str) -> str:
@@ -246,6 +299,16 @@ class Config:
             endpoints.append(endpoint.rstrip("/"))
         return endpoints
 
+    @classmethod
+    def _websocket_endpoint_list(cls, value: Any, name: str) -> List[str]:
+        endpoints = []
+        for endpoint in cls._str_list(value, name):
+            parsed = urlparse(endpoint)
+            if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
+                raise ValueError(f"{name} contains invalid websocket URL: {endpoint}")
+            endpoints.append(endpoint.rstrip("/"))
+        return endpoints
+
     @staticmethod
     def _positive_int(value: Any, name: str) -> int:
         try:
@@ -254,6 +317,16 @@ class Config:
             raise ValueError(f"{name} must be a positive integer")
         if parsed <= 0:
             raise ValueError(f"{name} must be a positive integer")
+        return parsed
+
+    @staticmethod
+    def _non_negative_int(value: Any, name: str) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{name} must be a non-negative integer")
+        if parsed < 0:
+            raise ValueError(f"{name} must be a non-negative integer")
         return parsed
 
     @staticmethod

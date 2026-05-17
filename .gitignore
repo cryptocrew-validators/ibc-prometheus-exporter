@@ -18,6 +18,7 @@ dist/
 .cache/
 .coverage
 htmlcov/
+packet-indexer.sqlite
 
 # IDE and editor files
 .vscode/
@@ -25,4 +26,3 @@ htmlcov/
 
 # OS files
 .DS_Store
-
