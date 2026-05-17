@@ -110,6 +110,7 @@ def build_home_anchored_exporter():
 def test_excluded_sequences_filtered():
     metrics.BACKLOG_SIZE.clear()
     metrics.BACKLOG_OLDEST_SEQ.clear()
+    metrics.ACK_BACKLOG_SIZE.clear()
     metrics.ACK_OLDEST_SEQ.clear()
     metrics.BACKLOG_UPDATED.clear()
     metrics.CLIENT_STATUS.clear()
@@ -133,6 +134,7 @@ def test_excluded_sequences_filtered():
     assert metrics.BACKLOG_OLDEST_SEQ.labels(**labels)._value.get() == 1
 
     # Fast-ack path: CP acks {2,3}; home unreceived_acks(...) => {3}; oldest = 3
+    assert metrics.ACK_BACKLOG_SIZE.labels(**labels)._value.get() == 1
     assert metrics.ACK_OLDEST_SEQ.labels(**labels)._value.get() == 3
     assert metrics.CHANNEL_STATE.labels(**labels, state="open")._value.get() == 1
     assert metrics.CLIENT_STATUS.labels(
@@ -147,6 +149,7 @@ def test_excluded_sequences_filtered():
 def test_failed_commitment_query_does_not_clear_existing_backlog():
     metrics.BACKLOG_SIZE.clear()
     metrics.BACKLOG_OLDEST_SEQ.clear()
+    metrics.ACK_BACKLOG_SIZE.clear()
     metrics.ACK_OLDEST_SEQ.clear()
     metrics.BACKLOG_UPDATED.clear()
 

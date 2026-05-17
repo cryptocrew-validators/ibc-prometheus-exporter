@@ -21,6 +21,7 @@ from ibc_monitor.metrics import (
     BACKLOG_SIZE,
     BACKLOG_OLDEST_SEQ,
     BACKLOG_OLDEST_TIMESTAMP,
+    ACK_BACKLOG_SIZE,
     ACK_OLDEST_SEQ,
     ACK_OLDEST_TIMESTAMP,
     BACKLOG_UPDATED,
@@ -284,6 +285,7 @@ class IBCExporter:
         aoldest_seq = min(apending) if apending else 0
         aoldest_ts = apending.get(aoldest_seq, 0)
         labels = self._metric_labels_dict(label_values)
+        ACK_BACKLOG_SIZE.labels(**labels).set(len(apending))
         ACK_OLDEST_SEQ.labels(**labels).set(aoldest_seq)
         ACK_OLDEST_TIMESTAMP.labels(**labels).set(aoldest_ts)
 
@@ -339,6 +341,7 @@ class IBCExporter:
                 BACKLOG_SIZE,
                 BACKLOG_OLDEST_SEQ,
                 BACKLOG_OLDEST_TIMESTAMP,
+                ACK_BACKLOG_SIZE,
                 ACK_OLDEST_SEQ,
                 ACK_OLDEST_TIMESTAMP,
             ):
