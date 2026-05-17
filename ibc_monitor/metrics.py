@@ -50,6 +50,11 @@ ACK_OLDEST_SEQ = Gauge(
     'Oldest AcknowledgementPacket sequence',
     ['chain_id', 'connection_id', 'port_id', 'channel_id', 'counterparty_chain_id', 'counterparty_port_id', 'counterparty_channel_id'],
 )
+ACK_BACKLOG_SIZE = Gauge(
+    'ibc_ack_packet_backlog_size',
+    'Total AcknowledgementPacket events backlog',
+    ['chain_id', 'connection_id', 'port_id', 'channel_id', 'counterparty_chain_id', 'counterparty_port_id', 'counterparty_channel_id'],
+)
 ACK_OLDEST_TIMESTAMP = Gauge(
     'ibc_ack_packet_backlog_oldest_timestamp_seconds',
     'Timestamp of oldest AcknowledgementPacket in backlog',
