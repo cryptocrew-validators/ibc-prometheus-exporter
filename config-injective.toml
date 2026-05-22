@@ -1,0 +1,242 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# IBC Prometheus Exporter config — Injective SA
+# Home chain  : injective-1
+# Counterparties: cosmoshub-4, osmosis-1, dydx-mainnet-1, neutron-1, agoric-3,
+#                 phoenix-1 (Terra 2), secret-4, interwoven-1 (Initia), zigchain-1
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ════════════════════════════════════════════════════════════
+# HOME CHAIN
+# ════════════════════════════════════════════════════════════
+
+[[chains]]
+name = "injective"
+chain_id = "injective-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/injective/rpc"
+]
+rests = [
+    "https://lcd.injective.network"
+]
+home_chain = true
+# Active clients on injective-1 for hermes-relayed counterparties
+whitelist_clients = [
+    "07-tendermint-5",    # → cosmoshub-4
+    "07-tendermint-19",   # → osmosis-1
+    "07-tendermint-126",  # → secret-4
+    "07-tendermint-216",  # → phoenix-1
+    "07-tendermint-233",  # → neutron-1
+    "07-tendermint-256",  # → dydx-mainnet-1
+]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = [
+    "icahost/channel-215",  # broken ICA ack path to neutron channel-829 (out-of-order acks 22–46)
+]
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[chains.excluded_sequences]
+# Stuck unreceived acks on injective source channels (hermes relay_ack_packet_messages).
+# Neutron counterparty channels: 829→215, 4482→288, 4498→304, 4616→315, 5387→352,
+# 5550→372, 5906→390, 6221→392. Osmosis counterparty: 77133→301.
+channel-215 = ["22-46"]
+channel-288 = ["1-3"]
+channel-301 = ["18"]
+channel-304 = ["58-74", "83-88", "97-102", "125"]
+channel-315 = ["6-7"]
+channel-352 = ["1-4", "11-18", "20"]
+channel-372 = ["3"]
+channel-390 = ["3"]
+channel-392 = ["8-10", "15-19"]
+
+# ════════════════════════════════════════════════════════════
+# COUNTERPARTIES
+# ════════════════════════════════════════════════════════════
+
+[[chains]]
+name = "cosmoshub"
+chain_id = "cosmoshub-4"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/cosmoshub/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on cosmoshub-4 tracking injective-1: 07-tendermint-470
+whitelist_clients = ["07-tendermint-470"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "osmosis"
+chain_id = "osmosis-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/osmosis/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on osmosis-1 tracking injective-1: 07-tendermint-1703
+whitelist_clients = ["07-tendermint-1703"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[chains.excluded_sequences]
+channel-122 = ["690940-757191"]
+
+[[chains]]
+name = "dydx"
+chain_id = "dydx-mainnet-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/dydx/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on dydx-mainnet-1 tracking injective-1: 07-tendermint-26
+whitelist_clients = ["07-tendermint-26"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "neutron"
+chain_id = "neutron-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/neutron/rpc"
+]
+rests = [""]
+home_chain = false
+# Active client on neutron-1 tracking injective-1: 07-tendermint-78
+whitelist_clients = ["07-tendermint-78"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = [
+    "icacontroller-neutron1tratu0zpejtdxyre34zzx20xv6u8qh3s8xfz4k0fg7wl284hzvpq8w96az/channel-829",  # broken ICA ack path from injective channel-215
+]
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[chains.excluded_sequences]
+# Stuck ack sequences are excluded on injective-1 (see home chain table above).
+
+[[chains]]
+name = "agoric"
+chain_id = "agoric-3"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/agoric/rpc"
+]
+rests = [""]
+home_chain = false
+# No active clients — all injective-1↔agoric-3 clients are expired
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "terra2"
+chain_id = "phoenix-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/terra2/rpc"
+]
+rests = [""]
+home_chain = false
+# Active clients on phoenix-1 tracking injective-1: 07-tendermint-108, 07-tendermint-369
+whitelist_clients = ["07-tendermint-369"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "secretnetwork"
+chain_id = "secret-4"
+rpcs = [
+    "http://37.252.186.102:26657"
+]
+rests = [
+    "http://37.252.186.102:1317"
+]
+home_chain = false
+# Active client on secret-4 tracking injective-1: 07-tendermint-49
+whitelist_clients = ["07-tendermint-49"]
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "initia"
+chain_id = "interwoven-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/initia/rpc"
+]
+rests = [""]
+home_chain = false
+# No paths created yet — whitelist empty until client/connection established
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+[[chains]]
+name = "zigchain"
+chain_id = "zigchain-1"
+rpcs = [
+    "https://s1.solva.solutions:8443/solva-internal/zigchain/rpc"
+]
+rests = [""]
+home_chain = false
+# No paths created yet — whitelist empty until client/connection established
+whitelist_clients = []
+blacklist_clients = []
+whitelist_connections = []
+blacklist_connections = []
+whitelist_channels = []
+blacklist_channels = []
+state_refresh_interval = 1200
+state_scan_timeout = 600
+
+# ════════════════════════════════════════════════════════════
+# General exporter settings
+# ════════════════════════════════════════════════════════════
+
+[exporter]
+address = "0.0.0.0"
+port = 8112
+update_interval_seconds = 30
+log_level = "INFO"
+enable_chain_registry_fallbacks = true
+omit_closed_channels = true
+omit_inactive_clients = false

@@ -57,11 +57,13 @@ class StateScanner:
         counterparty_chain_ids: List[str],
         rest_by_chain: Optional[Dict[str, RESTClient]] = None,  # cp chain_id -> RESTClient
         home_chain_id: Optional[str] = None,
+        cp_chain_cfgs: Optional[Dict[str, object]] = None,
     ):
         self.rest = client
         self.cfg = cfg
         self.counterparty_chain_ids = set(counterparty_chain_ids)
         self.rest_by_chain = rest_by_chain or {}
+        self.cp_chain_cfgs = cp_chain_cfgs or {}
         self.home_chain_id = home_chain_id or getattr(self.rest, "expected_chain_id", "")
 
         self.last_scan = 0
@@ -179,6 +181,12 @@ class StateScanner:
         if whitelist:
             return any(fnmatch.fnmatch(item, pat) for pat in whitelist)
         return not any(fnmatch.fnmatch(item, pat) for pat in blacklist)
+
+    def _cp_channel_filters(self, cp_chain: str):
+        cp_cfg = self.cp_chain_cfgs.get(cp_chain)
+        if cp_cfg is None:
+            return [], []
+        return cp_cfg.whitelist_channels, cp_cfg.blacklist_channels
 
     def _omit_inactive_clients(self) -> bool:
         return bool(getattr(self.cfg, "omit_inactive_clients", False))
@@ -431,6 +439,15 @@ class StateScanner:
                         cp = ch.get("counterparty") or {}
                         cp_port = cp.get("port_id", "")
                         cp_channel = cp.get("channel_id", "")
+                        cp_whitelist, cp_blacklist = self._cp_channel_filters(cp_chain)
+                        if not self._match_any(f"{port}/{channel}", cp_whitelist, cp_blacklist):
+                            logger.debug(
+                                "Skipping blacklisted counterparty channel %s/%s on %s",
+                                port,
+                                channel,
+                                cp_chain,
+                            )
+                            continue
                         cp_channels.append((cp_chain, cp_conn, port, channel, cp_port, cp_channel, home_chain_id))
                         cp_channel_state_map[(cp_chain, cp_conn, port, channel)] = state
         except Exception:

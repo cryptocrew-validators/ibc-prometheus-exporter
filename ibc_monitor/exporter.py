@@ -151,6 +151,7 @@ class IBCExporter:
             counterparty_chain_ids=self.cp_chain_ids,
             rest_by_chain=self.rest_by_chain,
             home_chain_id=self.home_chain_cfg.chain_id,
+            cp_chain_cfgs={c.chain_id: c for c in self.cp_chain_cfgs},
         )
 
         # in-memory tracking
